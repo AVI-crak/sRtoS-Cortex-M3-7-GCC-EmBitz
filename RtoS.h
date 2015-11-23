@@ -1,6 +1,6 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /* RtoS.h */
-/* videocrak@mail.ru */
+/* videocrak@maol.ru */
 
 
 #ifndef _RtoS.h
@@ -28,7 +28,7 @@ sMore_task [80] - формат банка
 0x04, #04, 32b,  адрес преведущей задачи ( указывает на голову)
 0x08, #08, 32b,  стек задачи (активный хвост)
 0x0C, #12, 32b,  время активности задачи в потоке
-0x10, #16, 32b,  адрес флага для пинка задачи или время спячки
+0x10, #16, 32b,  время сна (мс), адрес глобального флага пинка
 0x14, #20, 32b,  адрес таблицы выделенной памяти
 0x18, #24, 16b,  размер стека (задаётся при запуске)
 0x1A, #26, 16b,  мах размер стека (мах заюзанный размер стека)
@@ -37,8 +37,8 @@ sMore_task [80] - формат банка
 */
 
 
-/// sTask_wake (флаг) разбудить задачу
-__attribute__( ( always_inline ) ) static inline sTask_wake(char* const task_wake_flag)
+/// sTask_wake (глобальный флаг) разбудить задачу
+__attribute__( ( always_inline ) ) static inline sTask_wake(uint32_t* task_wake_flag)
 {
 __ASM volatile ("push   {r2}                \n\t"
                 "mov    r2, %[__wake_flag]  \n\t"
@@ -50,7 +50,7 @@ __ASM volatile ("push   {r2}                \n\t"
 
 
 
-/// sTask_wait (флаг) остановить задачу в ожидание пинка
+/// sTask_wait (глобальный флаг) остановить задачу в ожидание пинка
 __attribute__( ( always_inline ) ) static inline sTask_wait(uint32_t* task_wait_flag)
 {
 __ASM volatile ("push   {r2}                \n\t"
