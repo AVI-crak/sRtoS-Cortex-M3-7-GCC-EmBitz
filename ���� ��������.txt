@@ -20,6 +20,7 @@
 
 В процессе.
 
-https://drive.google.com/folderview?id=0Bz7oo2VUq2q_Y0t6Tk9tT2RWZmM&usp=sharing
+адрес для помощи в написании кода
+https://AVI-crak@bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
 
 http://www.youtube.com/watch?v=lGg5RqCE5Ig
