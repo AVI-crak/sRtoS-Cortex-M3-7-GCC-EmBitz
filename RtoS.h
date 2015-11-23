@@ -1,6 +1,6 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /* RtoS.h */
-/* videocrak@maol.ru */
+/* videocrak@mail.ru */
 
 
 #ifndef _RtoS.h
