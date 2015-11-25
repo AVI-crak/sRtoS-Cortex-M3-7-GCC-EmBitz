@@ -1,6 +1,17 @@
 /// Cortex-M3 GCC EmBitz 0.40
-/* RtoS.h */
-/* videocrak@maol.ru */
+/// им€ файла
+/// RtoS.h
+/// процент готовности 30%
+
+/// мыло дл€ заинтересованных
+/// videocrak@maol.ru
+/// форум дл€ обсуждени€
+/// http://forum.ixbt.com/topic.cgi?id=48:11735
+
+/// репозиторий
+/// https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
+/// актуальна€ рабоча€ сборка
+/// https://drive.google.com/folderview?id=0Bz7oo2VUq2q_Y0t6Tk9tT2RWZmM&usp=sharing
 
 
 #ifndef _RtoS.h
@@ -15,7 +26,7 @@ volatile uint32_t Random_register[3];
 sMore_task [80] - формат банка
 0x00, #0,  32b,  task_presently - јдрес активной задачи
 0x04, #4,  32b,  task_sDelay    - јдрес сп€щих задачь
-0x08, #8,  32b,  task_wait      - јдрес задачь ожидающих пинка
+0x08, #8,  32b,  task_wait      - јдрес задач ожидающих пинка
 0x0C, #12, 32b,  tik_real       - 100% тиков на задачу // us на задачу при старте
 0x10, #16, 32b,  Delay/flag/but - количество тиков на сон, адрес флага дл€ пинка,
 0x14, #20, 32b,  NVIC_size      - размер стека прерываний, задаетс€ при старте
@@ -27,7 +38,8 @@ sMore_task [80] - формат банка
 0x00, #00  32b,  адрес новой задачи (указывает на голову)
 0x04, #04, 32b,  адрес преведущей задачи ( указывает на голову)
 0x08, #08, 32b,  стек задачи (активный хвост)
-0x0C, #12, 32b,  врем€ активности задачи в потоке
+0x0C, #12, 16b,  таймер активности в потоке
+0x0E, #14, 16b - выделенный процент активности потоке
 0x10, #16, 32b,  врем€ сна (мс), адрес глобального флага пинка
 0x14, #20, 32b,  адрес таблицы выделенной пам€ти
 0x18, #24, 16b,  размер стека (задаЄтс€ при запуске)
@@ -137,16 +149,16 @@ void sTask_new (void (*taskS_func()),
                 uint32_t task_time_rate,
                 char* const task_func_name)
 {
-    __asm volatile("push {r4, r5, r6, r7, r8, r9}       \n\t"
-                   "mov r4, %[_sTask]       \n\t"
-                   "mov r5, %[_sTime_task]  \n\t"
-                   "mov r6, %[_sTask_size]  \n\t"
-                   "mov r9, %[_func_name]   \n\t"
+register volatile uint32_t taskS_func__     asm     ("r0") = taskS_func;
+register volatile uint32_t task_size__      asm     ("r1") = task_size;
+register volatile uint32_t task_time_rate__ asm     ("r2") = task_time_rate;
+register volatile uint32_t task_func_name__ asm     ("r3") = task_func_name;
+    asm volatile("push {r0}               \n\t"
+// а тут будет бонус
                    "SVC  0x4                \n\t"
-                   "pop {r4, r5, r6, r7, r8, r9}        \n\t"
+                   "pop {r0}        \n\t"
                   :
-                  : [_sTask] "r" (taskS_func),[_sTask_size] "r" (task_size),[_sTime_task] "r" (task_time_rate),
-                   [_func_name] "r" (task_func_name)
+                  :  "r" (taskS_func), "r" (task_size), "r" (task_time_rate), "r" (task_func_name)
                   : "memory" );
 }
 

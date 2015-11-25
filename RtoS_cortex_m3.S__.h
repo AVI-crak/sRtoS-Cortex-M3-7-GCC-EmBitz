@@ -1,11 +1,22 @@
 // Cortex-M3 GCC EmBitz 0.40
+/* имя файла */
 /* RtoS_cortex_m3.S */
+/* процент готовности 30% */
+
+/* мыло для заинтересованных */
 /* videocrak@maol.ru */
+/* форум для обсуждения */
+/* http://forum.ixbt.com/topic.cgi?id=48:11735 */
+
+/* репозиторий */
+/* https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc */
+/* актуальная рабочая сборка */
+/* https://drive.google.com/folderview?id=0Bz7oo2VUq2q_Y0t6Tk9tT2RWZmM&usp=sharing */
 
  .syntax unified
  .arch armv7-m
 
- .equ   __Test_psp,1
+ .equ   __Test_psp,0               // проверка на ошибки
  .equ   __Vector_table, 0xE000ED08
  .equ   __SysTick_CTRL, 0xE000E010 // #0xE010 SysTick->CTRL, #0xE014 SysTick->LOAD, #0xE018 SysTick->VAL
  .equ   __TIM6_CR1,     0x40001000 // +12 DIER, +16 SR, +20 EGR, +36 CNT, +40 PSC, >+44 ARR
@@ -118,39 +129,48 @@ ___sRandom_1:
             str     r0, [r3]
             bx      lr
 
-__sTask_new: //r4 void (*taskS_func()), r5 lifetime_time_task, r6 task_size, r9 char* const task_func_name
-         //   push    {r7,r8}
+__sTask_new: // [psp +0]) void (*taskS_func()), [psp +4] task_size ,
+             // [psp +8] task_time_rate , [psp +12] char* const task_func_name
+            push    {r4, r5, r6, r7, r8}
+ .ifdef  __Test_psp
+            tst     lr, #4
+            bne     __sTask_new_step_0
+            bkpt                            // ошибка, попытка запуска задачи в прерывании
+__sTask_new_step_0:
+ .endif
             ldr     r8,= sSustem_task       // адрес банка задачь
             ldr     r0, [r8, #24]           // удачный стек
+            mrs     r4, psp                 // r4 будет адресом параметров
+            ldr     r6, [r4, #4]            // [psp +4]) task_size
             add     r6, r6, #31
             bfc     r6, #0, #5              // выровняли размер новой задачи
             mov     r1, #12
 SVC_step4_1:
             sub     r1, r1, #4
             cmp     r1, #12
-            bhi     SVC_step_stop
+            bhi     SVC_step_stop           // проверили все существующие нити
             ldr     r3, [r8, r1]            // адрес первой задачи
             cmp     r3, #0
             beq     SVC_step4_1
-            mov     r7, r3                  // первая задача в списке
-//0 -удачный хвост, 1 счётчик, 2 новая голова,  7 кол линков, 8 банк
+            mov     r5, r3                  // r3 первая задача в списке
+//0 -удачный хвост, 1 счётчик, 2 новая голова,  5 задача в списке, 8 банк
 SVC_step4:
-            add     r2, r7, r6
+            add     r2, r5, r6
             add     r2, r2, #32
             cmp     r2, r0 //>
             itttt   hi
-            ldrhhi  r2, [r7, #24]           // читаем новый хвост
+            ldrhhi  r2, [r5, #24]           // читаем новый хвост
             subhi   r2, r2, #32
-            subhi   r2, r7, r2
+            subhi   r2, r5, r2
             cmphi   r0, r2
             ittt    hi
             movhi   r0, r2
             movhi   r1, #12                 // хвост изменился
             bhi     SVC_step4_1
-            ldr     r2, [r7]
+            ldr     r2, [r5]
             cmp     r3, r2
             itt     ne
-            movne   r7, r2
+            movne   r5, r2
             bne     SVC_step4
             b       SVC_step4_1
 
@@ -162,37 +182,43 @@ SVC_step4_6:
             itt     ne
             strne   r2, [r1], #4
             bne     SVC_step4_6
-            sub     r1, r0, #32             //новая задача
+            sub     r0, r0, #32             //новая задача
             ldr     r2, [r8]                //активная задача
             ldr     r3, [r2, #4]            //адрес преведущей задачи ( указывает на голову)
-            str     r1, [r3]                //голова указывает на новую
-            str     r1, [r2, #4]            //активная указывает на новую старую задачу
-            str     r2, [r1]                //новая указывает на активную
-            str     r3, [r1, #4]            //новая указывает на старую голову
-            str     r4, [r1, #-8]           //сохранили pc
-            ldr     r0, =__sTask_kill
-            str     r0, [r1, #-12]          //сохранили ложный lr
-            ldr     r7, [r8, #12]           //tik_real   // счётчик тиков
+            str     r0, [r3]                //голова указывает на новую
+            str     r0, [r2, #4]            //активная указывает на новую старую задачу
+            str     r2, [r0]                //новая указывает на активную
+            str     r3, [r0, #4]            //новая указывает на старую голову
+
+            ldr     r1, [r4]                // [psp +0]) void (*taskS_func())
+            str     r1, [r0, #-8]           //сохранили pc
+            ldr     r1, =__sTask_kill
+            str     r1, [r0, #-12]          //сохранили ложный lr
+            ldr     r1, [r8, #12]           //tik_real - 100% тиков на задачу
+            ldr     r5, [r4, #+8]           //[psp +8]) task_time_rate %
+
             cmp     r5, #100
             it      hi
             movhi   r5, #100
             cmp     r5, #1
             it      lo
             movlo   r5, #1
-            mul     r7, r7, r5
+            strh    r5, [r0, #14]           //сохранили выделенный процент времени
+            mul     r1, r1, r5
             mov     r3, #0
             movt    r3, #0x100
-            str     r3, [r1, #-4]           // сохранили xPSR в стек 0x1000000
+            str     r3, [r0, #-4]           //сохранили xPSR в стек 0x1000000
             mov     r5, #100
-            udiv    r7, r7, r5              //  подсчёт времени
-            sub     r4, r1, #64
-            str     r4, [r1, #8]            //стек задачи (активный хвост)
-            strh    r6, [r1, #24]           //размер стека (задаётся при запуске)
-            mov     r4, #64
-            strh    r4, [r1, #26]           //мах заюзанный размер стека
-            str     r7, [r1, #12]           //время активности задачи в потоке
-            str     r9, [r1, #28]           //адрес имени задачи (char* const text)
-        //    pop     {r7,r8}
+            udiv    r1, r1, r5              //подсчёт времени
+            sub     r2, r0, #64             //Cortex-M3
+            str     r2, [r0, #8]            //стек задачи (активный хвост)
+            strh    r6, [r0, #24]           //размер стека (задаётся при запуске)
+            mov     r3, #64
+            strh    r3, [r0, #26]           //мах заюзанный размер стека
+            strh    r1, [r0, #12]           //таймер активности в потоке
+            ldr     r1, [r4, #12]           //[psp +12]) char* const task_func_name
+            str     r1, [r0, #28]           //адрес имени задачи (char* const text)
+            pop     {r4, r5, r6, r7, r8}
             bx       lr
 
 
@@ -209,7 +235,7 @@ __Delete_Task:
             str     r2, [r3, #4]            //хвост новой на голову старой
             str     r3, [r1]                //новая активная задача
             ldr     r0, [r3, #8]            // читаем адрес стека
-            ldr     r1, [r3, #12]           // читаем новое время
+            ldrh    r1, [r3, #12]           // читаем новое время
             ldmia   r0!, {r4-r11}           // читаем сохранённое
             ldr     r2, =__TIM6_CR1
             str     r1, [r2, #44]            // сохранили время
@@ -288,7 +314,7 @@ __sDelay_new_next:
             ldr     r1, [r0]                // активная задача
             ldr     r2, [r1, #8]            // стек
             ldr     r3, =__TIM6_CR1
-            ldr     r1, [r0, #12]           // читаем новое время
+            ldrh    r1, [r0, #12]           // читаем новое время
             str     r1, [r3, #44]           // сохранили время
             mov     r1, #1
             str     r1, [r3, #20]           // перезапуск
@@ -327,7 +353,7 @@ __sTask_wait_next:
             ldr     r1, [r0]                // активная задача
             ldr     r2, [r1, #8]            // стек
             ldr     r3, =__TIM6_CR1
-            ldr     r1, [r0, #12]           // читаем новое время
+            ldrh    r1, [r0, #12]           // читаем новое время
             str     r1, [r3, #44]           // сохранили время
             mov     r1, #1
             str     r1, [r3, #20]           // перезапуск
@@ -336,7 +362,7 @@ __sTask_wait_next:
             bx      lr
 
 
-__sTask_wake: // R2(глобал флаг - адрес)
+__sTask_wake: // R2(глобал флаг - адрес) разбудить
             ldr     r3, [r2]                // читаем глобальный флаг
             cbz     r3, __sTask_wake_exit   // уже запускали
             ldr     r0, = sSustem_task      // адрес переменной с адресом активной задачи
@@ -452,7 +478,9 @@ _Start_task02:
             ldr     r2,  =sSustem_task
             str     r0, [r2]        //task_presently - Адрес активной задачи
             ldr     r1, [r2, #12]   //tik_real   // счётчик тиков
-            str     r1, [r0, #12]   //время активности задачи в потоке (ограничение 16bl)
+            strh    r1, [r0, #12]   //таймер активности в потоке
+            mov     r1, #100        // 100% выделенный процент активности потоке
+            strh    r1, [r0, #14]   //таймер активности в потоке
             ldr     r1, [r2, #24]
             bfc     r1, #16, #16
             strh    r1, [r0, #24]   // размер стека не может быть выше 64к, сохранили
@@ -580,7 +608,7 @@ PendSV_step_norm:
             str     r0, [r1]                // в переменной адрес новой задачи
             ldr     r2, [r0, #8]            // читаем адрес стека
             ldr     r3, =__TIM6_CR1
-            ldr     r1, [r0, #12]           // читаем новое время
+            ldrh    r1, [r0, #12]           // читаем новое время
             str     r1, [r3, #44]           // сохранили время
             mov     r1, #1
             str     r1, [r3, #20]           // перезаруск
