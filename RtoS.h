@@ -1,7 +1,7 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /// имя файла
 /// RtoS.h
-/// процент готовности 30%
+/// процент готовности 31%
 
 /// мыло для заинтересованных
 /// videocrak@maol.ru
@@ -10,8 +10,7 @@
 
 /// репозиторий
 /// https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
-/// актуальная рабочая сборка
-/// https://drive.google.com/folderview?id=0Bz7oo2VUq2q_Y0t6Tk9tT2RWZmM&usp=sharing
+
 
 
 #ifndef _RtoS.h
@@ -23,7 +22,7 @@ volatile uint32_t Random_register[3];
 
 /*
 //
-sMore_task [80] - формат банка
+sSustem_task [8] - формат банка
 0x00, #0,  32b,  task_presently - Адрес активной задачи
 0x04, #4,  32b,  task_sDelay    - Адрес спящих задачь
 0x08, #8,  32b,  task_wait      - Адрес задач ожидающих пинка
@@ -112,35 +111,33 @@ __attribute__( ( always_inline ) ) static inline __memory(void)
   __ASM volatile ("nop" : : : "memory");
 }
 
-/// Включить прерывание - после запуска ос и установки приоритета !!!!!
-__attribute__( ( always_inline ) ) static inline sNVIC_EnableIRQ(IRQn_Type IRQn)
+
+/// Включить прерывание, преоритет (от 14 до 1)
+__attribute__( ( always_inline ) ) static inline  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority)
 {
-__asm volatile("mov r1, %[IRQ] \n\t"
-               "SVC  0x0       \n\t"
+asm volatile ("push     {r1, r2}       \n\t"
+              "mov      r1, %[IRQ]      \n\t"
+              "mov      r2, %[PRIORIT]  \n\t"
+              "SVC      0x0             \n\t"
+              "pop      {r1, r2}        \n\t"
                :
-               : [IRQ] "r" (IRQn):"memory");
+               : [IRQ] "r" (IRQn),[PRIORIT] "r" (priority):"memory");
 }
+
+
 
 /// Отключить прерывание - после запуска ос
 __attribute__( ( always_inline ) ) static inline sNVIC_DisableIRQ(IRQn_Type IRQn)
 {
-__asm volatile("mov r1, %[IRQ] \n\t"
-               "SVC  0x1       \n\t"
+__asm volatile("push    {r1}        \n\t"
+               "mov     r1, %[IRQ]  \n\t"
+               "SVC     0x1         \n\t"
+               "pop     {r1}        \n\t"
                :
                : [IRQ] "r" (IRQn):"memory");
 }
 
-/// Установить преоритет прерывания (от 14 до 1)- после запуска ос
-__attribute__( ( always_inline ) ) static inline sNVIC_SetPriority(IRQn_Type IRQn, uint32_t priority)
-{
-    __asm volatile("push {r4, r5}       \n\t"
-                   "mov r4, %[IRQ]      \n\t"
-                   "mov r5, %[PRIORIT]  \n\t"
-                   "SVC  0x2            \n\t"
-                   "pop {r4, r5}        \n\t"
-                  :
-                  : [IRQ] "r" (IRQn),[PRIORIT] "r" (priority):"memory");
-}
+
 
 /// Новая задача - после запуска ос
 ///  функция , размер стека , процент времени 1-100
