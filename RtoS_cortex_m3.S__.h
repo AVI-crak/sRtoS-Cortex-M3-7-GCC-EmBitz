@@ -1,7 +1,7 @@
 // Cortex-M3 GCC EmBitz 0.40
 /* имя файла */
 /* RtoS_cortex_m3.S */
-/* процент готовности 30% */
+/* процент готовности 31% */
 
 /* мыло для заинтересованных */
 /* videocrak@maol.ru */
@@ -10,18 +10,18 @@
 
 /* репозиторий */
 /* https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc */
-/* актуальная рабочая сборка */
-/* https://drive.google.com/folderview?id=0Bz7oo2VUq2q_Y0t6Tk9tT2RWZmM&usp=sharing */
+
 
  .syntax unified
  .arch armv7-m
 
  .equ   __Test_psp,0               // проверка на ошибки
- .equ   __Vector_table, 0xE000ED08
- .equ   __SysTick_CTRL, 0xE000E010 // #0xE010 SysTick->CTRL, #0xE014 SysTick->LOAD, #0xE018 SysTick->VAL
- .equ   __TIM6_CR1,     0x40001000 // +12 DIER, +16 SR, +20 EGR, +36 CNT, +40 PSC, >+44 ARR
- .equ   __RCC_APB1ENR,  0x4002101C
- .equ   __tik_real_ms,  0x000F4240
+ .equ   __Vector_table,     0xE000ED08
+ .equ   __SysTick_CTRL,     0xE000E010  // #0xE010 SysTick->CTRL, #0xE014 SysTick->LOAD, #0xE018 SysTick->VAL
+ .equ   __TIM6_CR1,         0x40001000  // +12 DIER, +16 SR, +20 EGR, +36 CNT, +40 PSC, >+44 ARR
+ .equ   __RCC_APB1ENR,      0x4002101C
+ .equ   __tik_real_ms,      0x000F4240
+ .equ   __TIM_Delay_IRQn,   54          //TIM6_IRQn
 
 
  .align 4
@@ -51,23 +51,52 @@ SVC_Table:
 
 
 
-
-
-
-
-__EnableIRQS:
-            mov     r3, #0x1F
-            and     r0, r1, r3
+__EnableIRQS: // r1 IRQn, r2 Priority
+            and     r1, #0xFF       //IRQn безопасность
+            and     r2, #0xF        //Priority безопасность
+            cmp     r2, #0
+            it      eq              //проверка на мах приоритет
+            moveq   r2, #1
+            cmp     r2, #15
+            it      eq              //проверка на мин приоритет
+            moveq   r2, #14
+            cmp     r1, #0xFF       //проверка SysTick_IRQn
+            it      eq
+            moveq   r2, #15         //SysTick_IRQn должен иметь минимальный приоритет
+            cmp     r1, #0xFB       //проверка SVCall_IRQn
+            beq     EnableIrq_error //нельзя менять приоритет
+            cmp     r1, #0xFE       //проверка PendSV_IRQn
+            beq     EnableIrq_error //нельзя менять приоритет
+            cmp     r1, __TIM_Delay_IRQn
+            it      eq
+            moveq   r2, #15         //минимальный приоритет
+            lsl     r2, r2, #4      //сдвиг на границу
+            mov     r3, r1
+            and     r3, #0x0F
+            sub     r3, r3, #4
+            movw    r0, #0xE400
+            movt    r0, #0xE000
+            cmp     r1, #0xF1
+            ittte   cs
+            movwcs  r0, #0xED18
+            movtcs  r0, #0xE000
+            strbcs  r2, [r0, r3]    //SCB->SHP 0xE000ED18
+            strbcc  r2, [r0, r1]    //NVIC->IP 0xE000E400
+            and     r2, r1, #0x1F
             mov     r3, #0x1
-            lsls	r2, r3, r0
-            lsrs    r0, r1, #5
-            lsls	r0, r0, #2
-            mov     r3, #0xE100
-            movt    r3, #0xE000
-            str     r2, [r3, r0]
+            lsls	r2, r3, r2
+            lsrs    r1, r1, #5
+            lsls	r1, r1, #2
+            mov     r0, #0xE100
+            movt    r0, #0xE000
+            str     r2, [r0, r1]
+EnableIrq_error:
             bx      lr
 
 __DisableIRQS:
+//NVIC->ICER[((uint32_t)(IRQn) >> 5)] = (1 << ((uint32_t)(IRQn) & 0x1F)); /* disable interrupt */
+            cmp     r1, __TIM_Delay_IRQn
+            beq     EnableIrq_error //нельзя удалять
             mov     r3, #0x1F
             and     r0, r1, r3
             mov     r3, #0x1
@@ -80,19 +109,8 @@ __DisableIRQS:
             bx      lr
 
 __SetPriorityS: //"r4" (IRQn),"r5" (priority)
-            lsls    r0, r5, #4
-            tst     r4, #0x80
-            bne     SVC_step2
 
-            movw    r2, #0xE400 //NVIC->IP 0
-            movt    r2, #0xE000
-            strb    r0, [r2, r4]
-            bx      lr
-SVC_step2:
-            movw    r2, #0xED14 //SCB->SHP 0
-            movt    r2, #0xE000
-            bfc     r4, #4, #28
-            strb    r0, [r2, r4]
+
             bx      lr
 
 ___sRandom:
@@ -452,8 +470,8 @@ Start_task: // перемещение стеков
             mrs	    r3, MSP
             sub     r3, r1, r3      //размер стека на текущий момент
             cmp     r2, r3
-            ite      lo              // если запланированный размер стека меньше текущего -то используем текуший
-            addlo   r2, r3,#31
+            ite     lo              // если запланированный размер стека меньше текущего -то используем текуший
+            addlo   r2, r3, #31
             addhs   r2, r2, #31
             bfc     r2, #0, #5
             str     r2, [r0, #24]   // обравняли на поле и сохранились
@@ -477,10 +495,9 @@ _Start_task02:
             bne     _Start_task02   // r0 + 4 адрес таблицы
             ldr     r2,  =sSustem_task
             str     r0, [r2]        //task_presently - Адрес активной задачи
-            ldr     r1, [r2, #12]   //tik_real   // счётчик тиков
-            strh    r1, [r0, #12]   //таймер активности в потоке
-            mov     r1, #100        // 100% выделенный процент активности потоке
-            strh    r1, [r0, #14]   //таймер активности в потоке
+            ldr     r1, [r2, #12]   //tik_real - 100% тиков на задачу
+            movt    r1, #100        //100% выделенный процент активности потоке
+            str     r1, [r0, #12]   //таймер активности в потоке//выделенный процент
             ldr     r1, [r2, #24]
             bfc     r1, #16, #16
             strh    r1, [r0, #24]   // размер стека не может быть выше 64к, сохранили
@@ -508,41 +525,40 @@ _Start_task03:
             str     r1, [r3, #156]  // сохранили xPSR в стек 0x1000000
             add     r3, r3, #160    // r3 голова таблицы sTask_nil
             ldr     r5,  =sSustem_task
-            ldr     r2, [r5, #12]   //tik_real   // счётчик тиков
+            ldr     r2, [r5, #12]   //tik_real - 100% тиков на задачу
             ldr     r0, [r5]        // активная задача
             str     r3, [r0]        //адрес новой задачи (указывает на голову)
             str     r0, [r3]        //адрес новой задачи (указывает на голову)
             str     r3, [r0, #4]    //адрес преведущей задачи ( указывает на голову)
             str     r0, [r3, #4]    //адрес преведущей задачи ( указывает на голову)
-            str     r2, [r3, #12]   //время активности задачи в потоке
+            movt    r2, #100
+            str     r2, [r3, #12]   //таймер активности в потоке//выделенный процент
             sub     r1, r3, #64
             str     r1, [r3, #8]    //стек задачи (активный хвост)
             ldr     r1, =__sTask_nil_Nane
             str     r1, [r3, #28]   //адрес имени задачи (char* text) // номер задачи
             mov     r1, #128
-            strh    r1, [r3, #24]   // размер стека сохранили
+            strh    r1, [r3, #24]   //размер стека сохранили
             mov     r1, #64
-            strh    r1, [r3, #26]   // мах заюзанный размер стека
-            ldr     r2, [r5, #20]           // размер стека прерываний
-            ldr     r1, [r5, #24]           //размер стека майна
+            strh    r1, [r3, #26]   //мах заюзанный размер стека
+            ldr     r2, [r5, #20]   //размер стека прерываний
+            ldr     r1, [r5, #24]   //размер стека майна
             add     r2, r2, r1
             ldr     r3, =__Vector_table
             ldr     r3, [r3]
-            ldr     r3, [r3]                //вершина стека
-            add     r2, r2, #160            // (задача_нуль(8*4*4)+(таблица(8*4)))+прерывания
-            sub     r3, r3, r2              //хвост майна (вероятная голова новой задачи)
-            str     r3, [r5, #24]           //удачный стек
+            ldr     r3, [r3]        //вершина стека
+            add     r2, r2, #160    //(задача_нуль(8*4*4)+(таблица(8*4)))+прерывания
+            sub     r3, r3, r2      //хвост майна (вероятная голова новой задачи)
+            str     r3, [r5, #24]   //удачный стек
             mov     r1, #3
             cpsie    i
             msr	   CONTROL, r1
             nop
             mov     r1, #54         //TIM6 global Interrupt
-            mov     r5, #0x0F
-            mov     r4, r1
-            svc     0x2             //sNVIC_SetPriority(TIM6_IRQn, 15);
-            svc     0x0             //sNVIC_EnableIRQ(TIM6_IRQn)
-            mov     r4, #0xFF
-            svc     0x2             //sNVIC_SetPriority(SysTick_IRQn, 15);
+            mov     r2, #0x0F
+            svc     0x0             //sNVIC_EnableIRQ(TIM6_IRQn, 15)
+            mov     r1, #0xFF
+            svc     0x0             //sNVIC_EnableIRQ(SysTick_IRQn, 15);
             pop     {r0, r1, r2, r3, R4, R5, lr}
             bx      lr
 
