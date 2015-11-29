@@ -1,7 +1,7 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /// имя файла
 /// RtoS.h
-/// процент готовности 31%
+/// процент готовности 32%
 
 /// мыло для заинтересованных
 /// videocrak@maol.ru
@@ -28,7 +28,7 @@ sSustem_task [8] - формат банка
 0x08, #8,  32b,  task_wait      - Адрес задач ожидающих пинка
 0x0C, #12, 32b,  tik_real       - 100% тиков на задачу // us на задачу при старте
 0x10, #16, 32b,  Delay/flag/but - количество тиков на сон, адрес флага для пинка,
-0x14, #20, 32b,  NVIC_size      - размер стека прерываний, задается при старте
+0x14, #20, 32b,  NVIC_size      - размер стека прерываний // мах нижний порог стека
 0x20, #24, 32b,  Main_size/start- размер стека майна,// удачный стек
 0x1C, #28, 32b,  sSYSHCLK       -  системная частота, гц - задается при старте
 
@@ -38,7 +38,9 @@ sSustem_task [8] - формат банка
 0x04, #04, 32b,  адрес преведущей задачи ( указывает на голову)
 0x08, #08, 32b,  стек задачи (активный хвост)
 0x0C, #12, 16b,  таймер активности в потоке
-0x0E, #14, 16b - выделенный процент активности потоке
+//0x0E, #14, 16b - выделенный процент активности потоке
+0x0E, #14, 08b - выделенный процент активности потоке
+0x0F, #15, 08b - флаг запроса на обработку
 0x10, #16, 32b,  время сна (мс), адрес глобального флага пинка
 0x14, #20, 32b,  адрес таблицы выделенной памяти
 0x18, #24, 16b,  размер стека (задаётся при запуске)
@@ -141,6 +143,7 @@ __asm volatile("push    {r1}        \n\t"
 
 /// Новая задача - после запуска ос
 ///  функция , размер стека , процент времени 1-100
+/*
 void sTask_new (void (*taskS_func()),
                 uint32_t task_size,
                 uint32_t task_time_rate,
@@ -158,6 +161,31 @@ register volatile uint32_t task_func_name__ asm     ("r3") = task_func_name;
                   :  "r" (taskS_func), "r" (task_size), "r" (task_time_rate), "r" (task_func_name)
                   : "memory" );
 }
+*/
+void sTask_new (void (*taskS_func()),
+                uint32_t task_size,
+                uint32_t task_time_rate,
+                char* const task_func_name,
+                void* func_parametr )
+{
+register volatile uint32_t taskS_func__     asm     ("r0") = taskS_func;
+register volatile uint32_t task_size__      asm     ("r1") = task_size;
+register volatile uint32_t task_time_rate__ asm     ("r2") = task_time_rate;
+register volatile uint32_t task_func_name__ asm     ("r3") = task_func_name;
+register volatile uint32_t func_parametr__  asm     ("r4") = func_parametr;
+
+
+    asm volatile  ("push {r0, r4}           \n\t"
+// а тут будет бонус
+                   "SVC  0x4                \n\t"
+                   "pop {r0, r4}            \n\t"
+                  :
+                  :  "r" (taskS_func), "r" (task_size), "r" (task_time_rate), "r" (task_func_name),
+                     "r" (func_parametr)
+                  : "memory" );
+}
+
+
 
 /// Уступить время - только внутри работающей задачи
 __attribute__( ( always_inline ) ) static inline sTask_skip (void)
