@@ -1,7 +1,7 @@
 // Cortex-M3 GCC EmBitz 0.40
 /* имя файла */
 /* RtoS_cortex_m3.S */
-/* процент готовности 31% */
+/* процент готовности 32% */
 
 /* мыло для заинтересованных */
 /* videocrak@maol.ru */
@@ -149,6 +149,7 @@ ___sRandom_1:
 
 __sTask_new: // [psp +0]) void (*taskS_func()), [psp +4] task_size ,
              // [psp +8] task_time_rate , [psp +12] char* const task_func_name
+             // [psp +16] = func_parametr;
             push    {r4, r5, r6, r7, r8}
  .ifdef  __Test_psp
             tst     lr, #4
@@ -236,7 +237,13 @@ SVC_step4_6:
             strh    r1, [r0, #12]           //таймер активности в потоке
             ldr     r1, [r4, #12]           //[psp +12]) char* const task_func_name
             str     r1, [r0, #28]           //адрес имени задачи (char* const text)
-            pop     {r4, r5, r6, r7, r8}
+            add     r2, r2, #32
+            pop     {r4}                    // void* func_parametr
+            cbz     r4, sTask_new_error
+            ldmia   r4!, {r5-r8}            //чтение параметров функции
+            stmia   r2!, {r5-r8}            //установка параметров функции
+sTask_new_error:
+            pop     {r5, r6, r7, r8}
             bx       lr
 
 
