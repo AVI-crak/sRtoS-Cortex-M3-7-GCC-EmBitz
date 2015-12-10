@@ -1,7 +1,7 @@
 // Cortex-M3 GCC EmBitz 0.40
 /* имя файла */
 /* RtoS_cortex_m3.S */
-/* процент готовности 33% */
+/* процент готовности 34% */
 
 /* мыло для заинтересованных */
 /* videocrak@maol.ru */
@@ -48,8 +48,8 @@ SVC_Table:
     .hword   ((__sDelay_new - SVC_Table)/2)      //7
     .hword   ((__sTask_wait - SVC_Table)/2)      //8
     .hword   ((__sTask_wake - SVC_Table)/2)      //9
-    .hword   ((__sTask_malloc_in - SVC_Table)/2) //A
-    .hword   ((__sTask_malloc_of - SVC_Table)/2) //B
+    .hword   ((__nil_ - SVC_Table)/2)            //A
+    .hword   ((__malloc_ww - SVC_Table)/2)       //B
 
 
 
@@ -139,13 +139,13 @@ ___sRandom_1:
             ite     eq
             mrseq   r3, msp
             mrsne   r3, psp
-            ldr     r1, [r3, #4]
-            ldr     r2, [r3, #8]
+            ldr     r1, [r3]
+            ldr     r2, [r3, #4]
             sub     r1, r1, r2
             mvn     r2, #0
             udiv    r1, r2, r1
             udiv    r0, r0, r1
-            ldr     r2, [r3, #8]
+            ldr     r2, [r3, #4]
             add     r0, r0, r2
             str     r0, [r3]
             bx      lr
@@ -153,7 +153,7 @@ ___sRandom_1:
 __sTask_new: // [psp +0]) void (*taskS_func()), [psp +4] task_size ,
              // [psp +8] task_time_rate , [psp +12] char* const task_func_name
              // pop {r4} = *func_parametr;
-            push    {r4, r5, r6, r7, r8}
+            push    {r4, r7, r8}
  .ifdef  __Test_psp
             tst     lr, #4
             bne     __sTask_new_step_0
@@ -199,6 +199,13 @@ SVC_step4:
 SVC_step_stop: // r0 вершина стека новой нити
             sub     r1, r0, #96
             mov     r2, #0
+            sub     r5, r0, r6
+ //           ldr     r7, [r8, #40]           // граница
+ //           cmp     r5, r7
+ //           bhi     SVC_step4_6             // есть место
+  //          pop     {r4, r7, r8}
+  //          mov     r5, #1
+  //          bx      lr
 SVC_step4_6:
             cmp     r1, r0
             itt     ne
@@ -246,8 +253,9 @@ SVC_step4_6:
             ldmia   r4!, {r5-r8}            //чтение параметров функции
             stmia   r2!, {r5-r8}            //установка параметров функции
 sTask_new_error:
-            pop     {r5, r6, r7, r8}
-            bx       lr
+            pop     {r7, r8}
+      //      mov     r5, #0
+            bx      lr
 
 
 __Delete_Task:
@@ -257,6 +265,8 @@ __Delete_Task:
             ldr     r3, [r0, #28]
             sub     r2, r3, r2
             cbz     r2, _Delete_Task_error
+
+
             ldr     r2, [r0, #4]            //читаем адрес хвоста
             ldr     r3, [r0]                //читаем адрес новой задачи
             str     r3, [r2]                //хвост на новую
@@ -425,14 +435,11 @@ __sTask_wake_exit:
             bx      lr
 
 
-__sTask_malloc_in: // ("r1") = malloc_zize;
+__nil_: // нить отложенных заданий
             ldr     r0,  =sSustem_task
-            mov     r2, #1                  // флаг обработки для sTask_nil, 1 = malloc_in
-            ldr     r3, [r0]                // активная задача
-            strb    r2, [r3, #15]           // флаг запроса на обработку
-            str     r1, [r3, #20]           // malloc_zize - malloc_adres // malloc_adres
-            ldr     r2, =__sTask_nil_Nane
-            str     r2, [r3, #16]           // сохранили адрес флага для пинка
+            ldr     r3, [r0]              // активная задача
+            ldr     r1, =__sTask_nil_Nane
+            str     r1, [r3, #16]           // сохранили адрес флага для пинка
             mrs     r2, psp
             stmdb   r2!, {r4-r11}           // сохраняем регистры
             str     r2, [r3, #8]            // сохранили адрес стека активной задачи
@@ -447,13 +454,13 @@ __sTask_malloc_in: // ("r1") = malloc_zize;
             streq   r3, [r0, #12]            // первая задача обработку памяти
             streq   r3, [r3]
             streq   r3, [r3, #4]
-            beq     __sTask_malloc_in_next
+            beq     __nil_next
             ldr     r1, [r2, #4]            // хвост ожидающих пинка
             str     r3, [r1]                // хвост на новую голову
             str     r1, [r3, #4]            // новая на хвост
             str     r3, [r2, #4]            // хвост первой ожидающих пинка на новую
             str     r2, [r3]                // голова новой на ожидающих пинка
-__sTask_malloc_in_next:
+__nil_next:
             ldr     r1, [r0]                // активная задача
             ldr     r2, [r1, #8]            // стек
             ldr     r3, =__TIM6_CR1
@@ -465,7 +472,7 @@ __sTask_malloc_in_next:
             str     r1, [r3, #20]           // перезапуск
             bx      lr
 
-__sTask_malloc_of:  // перемещаем активный маллок в хвост активных задач
+__malloc_ww:  // перемещаем активный маллок в хвост активных задач
             push    {R4}
             ldr     r4,  =sSustem_task
             ldr     r3, [r4, #12]           // задача из обработки маллок
@@ -626,6 +633,11 @@ _Start_task03:
             add     r2, r2, #160    //(задача_нуль(8*4*4)+(таблица(8*4)))+прерывания
             sub     r3, r3, r2      //хвост майна (вероятная голова новой задачи)
             str     r3, [r5, #24]   //удачный стек
+            ldr     r1, =__HeapBase // стартовый адрес
+            add     r1, r1, #15     //маллок_адрес
+            bfc     r1, #0, #4
+            str     r1, [r5, #36]   //malloc_start - первый адрес malloc
+            str     r1, [r5, #40]  //malloc_stop - последний адрес malloc
             mov     r1, #3
             cpsie    i
             msr	   CONTROL, r1
@@ -748,9 +760,7 @@ TIM6_IRQHandler:
 sTask_nil:
             ldr     r12, = sSustem_task     // адрес переменной с адресом активной задачи
             ldr     r11, =__TIM6_CR1
-            ldr     r10, =__HeapBase        // стартовый адрес
-            add     r10, r10, #15           //маллок_адрес
-            bfc     r10, #0, #4
+            ldr     r10, [r12, #36]          //malloc_start - первый адрес malloc
 
 sTask_nil_re:
             ldr     r0, [r12, #12]          // адрес задач на обработку памяти
@@ -761,6 +771,8 @@ sTask_nil_re:
 __malloc_Table:
     .hword   ((__malloc_0 - __malloc_Table)/2)      //0
     .hword   ((__malloc_in - __malloc_Table)/2)     //1
+    .hword   ((__malloc_free - __malloc_Table)/2)   //2
+
 
 
 __malloc_0: // флаг0 - ошибка
@@ -789,6 +801,8 @@ __malloc_in_for:    // r6 - адрес старта, R7 - сдвиг
             add     r3, r6, r2
             str     r5, [r3]                // новая последняя
             str     r5, [r3, #4]            // без хозяина
+            add     r3, r3, #12
+            str     r3, [r12, #40]          // malloc_stop - последний адрес malloc
             add     r1, r4, #8              // адрес для передачи в функцию
             svc     0xB                     // 11
             b       sTask_nil_re            // новый круг
@@ -799,14 +813,30 @@ __malloc_in_1:                              // не последняя
             str     r2, [r6]                // новый размер
             str     r9, [r6, #4]            // новый хозяин
             add     r1, r6, #8              // адрес для передачи в функцию
-            sub     r2, r2, r7
-            add     r6, r6, r2
-            str     r2, [r6]                // сдвиг до остатка
-            str     r5, [r6, #4]            // без хозяина
+            sub     r3, r7, r2
+            cmp     r3, #12
+            ittte   hs                      // есть остаток >=  для нового
+            addhs   r6, r6, r2
+            strhs   r3, [r6]                // сдвиг до остатка
+            strhs   r5, [r6, #4]            // без хозяина
+            strlo   r7, [r6]
             svc     0xB                     // 11
             b       sTask_nil_re            // новый круг
 
-
+__malloc_free:
+            ldr     r2, [r0, #20]           // читем free (malloc_adres) задачи
+            mov     r1, #0
+            str     r1, [r2, #-4]           // затираем хозяина
+            ldr     r5, [r2, #-8]           // читаем размер
+            add     r3, r5, r2
+            ldr     r4, [r3, #-8]           // читаем следующий маллок
+            cmp     r4, #0                  // если там пусто
+            ittt    eq
+            streq   r1, [r2, #-8]           // стёрли указатель
+            addeq   r2, r2, #4
+            streq   r2, [r12, #40]          // новая граница
+            svc     0xB                     // 11
+            b       sTask_nil_re            // новый круг
 
 sTask_nil_step:
             ldr     r0, [r12]               // адрес активной задачи (себя)
