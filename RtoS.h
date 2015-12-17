@@ -11,48 +11,60 @@
 /// репозиторий
 /// https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
 
-//#define __HEAP_SIZE = 1000;
 
-#ifndef _RtoS.h
-#include "stm32f107xc.h"
+#ifndef _RtoS_
+
 //#define _bitFlag volatile uint32_t __attribute__ ((section(".flag"))) // так лучше
 
-volatile uint32_t sSustem_task [11];
+
+
+
+/// sSustem_task - формат банка
+struct
+{
+  struct task* activ;               ///- Адрес активной задачи
+  struct task* delay;               ///- Адрес спящих задачь
+  struct task* wait;                ///- Адрес задач ожидающих пинка
+  struct task* hold;                ///- Адрес задач на обработку памяти
+  __IO uint32_t NVIC_size_max;      ///- использованный размер стека прерываний
+  __IO uint32_t NVIC_size;          ///- размер стека прерываний, задаётся при старте
+  __IO uint32_t Main_size_start;    ///- размер стека майна// удачный стек
+  __IO uint32_t sSYSHCLK;           ///- системная частота, гц - задается при старте
+  __IO uint32_t tik_real;           ///- 100% тиков на задачу // us на задачу при старте
+  __IO uint32_t malloc_start;       ///- первый адрес malloc
+  __IO uint32_t malloc_stop;        ///- последний адрес malloc
+  __IO uint32_t task_stop;          ///- последний адрес стека
+}sSustem_task ;
+
+
+
+struct task
+{
+  struct task* task_new;            /// 0x00, #00  32b,- Адрес новой задачи
+  struct task* task_lid;            /// 0x04, #04, 32b,- Адрес старой задачи
+  __IO uint32_t last_stack;         /// 0x08, #08, 32b,- Cтек задачи (активный хвост)
+  __IO uint16_t life_time;          /// 0x0C, #12, 16b,- Таймер активности в потоке
+  __IO uint8_t percent;             /// 0x0E, #14, 08b,- Выделенный процент активности потоке
+  __IO uint8_t flag;                /// 0x0F, #15, 08b,- Флаг запроса на обработку
+  __IO uint32_t sleep_wake;         /// 0x10, #16, 32b,- Время сна (мс) // адрес глобального флага пинка
+  __IO uint32_t data_address;       /// 0x14, #20, 32b,- Malloc_zize - malloc_adres // malloc_adres
+  __IO uint16_t stack_zize;         /// 0x18, #24, 16b,- Размер стека (задаётся при запуске)
+  __IO uint16_t stack_max_zize;     /// 0x1A, #26, 16b,- Мах размер стека (мах заюзанный размер стека)
+  __IO char* task_names;            /// 0x1C, #28, 32b,- Адрес имени задачи (char* const text)
+};
+
+
+
 volatile uint32_t Random_register[3];
 
 /**
 
-sSustem_task [10] - формат банка
-0x00, #0,  32b,  task_presently         - Адрес активной задачи
-0x04, #4,  32b,  task_sDelay            - Адрес спящих задачь
-0x08, #8,  32b,  task_wait              - Адрес задач ожидающих пинка
-0x0C, #12, 32b,  task_malloc            - Адрес задач на обработку памяти
-0x10, #16, 32b,  NVIC_size_max          - использованный размер стека прерываний
-0x14, #20, 32b,  NVIC_size              - размер стека прерываний, задаётся при старте
-0x20, #24, 32b,  Main_size/start        - размер стека майна// удачный стек
-0x1C, #28, 32b,  sSYSHCLK               - системная частота, гц - задается при старте
-0x20, #32, 32b,  tik_real               - 100% тиков на задачу // us на задачу при старте
-0x24, #36, 32b,  malloc_start           - первый адрес malloc
-0x28, #40, 32b,  malloc_stop            - последний адрес malloc
-
- банк задачи ( кратность 0x20)
- расположение в массиве стека задачи - в голове
-0x00, #00  32b,  адрес новой задачи (указывает на голову)
-0x04, #04, 32b,  адрес преведущей задачи ( указывает на голову)
-0x08, #08, 32b,  стек задачи (активный хвост)
-0x0C, #12, 16b,  таймер активности в потоке
-0x0E, #14, 08b - выделенный процент активности потоке
-0x0F, #15, 08b - флаг запроса на обработку
-0x10, #16, 32b,  время сна (мс) // адрес глобального флага пинка
-0x14, #20, 32b,  malloc_zize - malloc_adres // malloc_adres
-0x18, #24, 16b,  размер стека (задаётся при запуске)
-0x1A, #26, 16b,  мах размер стека (мах заюзанный размер стека)
-0x1C, #28, 32b,  адрес имени задачи (char* const text)
-
-
 флаг запроса на обработку
 1 получить новую область памяти
 2 удалить область памяти
+3 удалить все области памяти задачи
+4 корректно убить задачу
+
 3 отдать область памяти по адресу имени с потверждением о принятии (память ничейная)
 4 подтверждение о приняти области памяти (память принадлежит новой нити)
 5 создать кольцевую очередь для записи
@@ -62,8 +74,8 @@ sSustem_task [10] - формат банка
 
 маллок
 0x00, #00, 32b, смещение до нового блока
-0x02, #02, 32b, имя задачи
-0x04, #04, 32b, дата (минимум 4b)
+0x04, #04, 32b, имя задачи
+0x04, #08, 32b, дата (минимум 4b)
 **/
 
 
@@ -71,48 +83,45 @@ sSustem_task [10] - формат банка
 /// Выделить память (размер)
 static uint32_t malloc (uint32_t malloc_zize)
 {
-register volatile uint32_t malloc_adres = malloc_zize;
-asm volatile ("mov      r1, %[malloczize__] \n\t"
-              "cbnz     r1, _Za_%=            \n\t"
+register volatile uint32_t malloc_adres asm  ("r0") = malloc_zize;
+asm volatile ("push     {r1, r2, r3}        \n\t"
+              "mov      r1, %[malloczize__] \n\t"
+              "ldr      r3,  =sSustem_task  \n\t"
+              "ldr      r3, [r3]            \n\t"   // активная задача
+              "cbnz     r1, _Za_%=          \n\t"
               "bkpt                         \n\t"   // нулевой размер требуемой  памяти
-              "_Za_%=:" "push     {r3}        \n\t"
-              "ldr     r3,  =sSustem_task   \n\t"
-              "ldr     r3, [r3]             \n\t"   // активная задача
-              "str     r1, [r3, #20]        \n\t"   // malloc_zize - malloc_adres // malloc_adres
-              "mov     r1, #1               \n\t"   // флаг обработки для sTask_nil, 1 = malloc_in
-              "strb    r1, [r3, #15]        \n\t"   // флаг запроса на обработку
-              "SVC      0xA                 \n\t"   // нить отложенных заданий
-              "mov     r1, r3               \n\t"
-              "pop      {r3}                \n\t"
-              "ldr      %[malloc_ad__],  [r1, #20]   \n\t"
-
-               : [malloc_ad__] "=&r" (malloc_adres)
-               : [malloczize__] "r" (malloc_zize): "r1" );
+   "_Zaa_%=:" "mov      r2, #10             \n\t"   // пауза 10мс
+              "svc      0x7                 \n\t"
+   "_Za_%=:"  "str      r1, [r3, #20]       \n\t"   // malloc_zize - malloc_adres // malloc_adres
+              "mov      r2, #1              \n\t"   // флаг обработки для sTask_nil, 1 = malloc_in
+              "strb     r2, [r3, #15]       \n\t"   // флаг запроса на обработку
+              "svc      0xA                 \n\t"   // нить отложенных заданий
+              "ldr      r2,  [r3, #20]      \n\t"
+              "cmp      r2, #0              \n\t"
+              "beq      _Zaa_%=             \n\t"   // возвращён нулевой адрес
+              "mov      %[malloc_ad__], r2  \n\t"
+              "pop      {r1, r2, r3}        \n\t"
+               : [malloc_ad__] "=r" (malloc_adres)
+               : [malloczize__] "r" (malloc_zize):  );
 return malloc_adres;
 }
 
 /// Удалить память (адрес)
 static void free (void* malloc_adres)
 {
-asm volatile (//"push     {r1, r2, r3}              \n\t"
+asm volatile ("push     {r0, r1}                  \n\t"
               "ldr      r1,  =sSustem_task        \n\t"
-              "ldr      r3, [r1]                  \n\t"   // активная задача
-              "ldr      r2, [r3, #28]             \n\t"   // реальный хозяин
-              "str      %[adres__], [r3, #20]     \n\t"   // malloc_adres
-              "ldr      %[adres__], [%[adres__], #-4] \n\t"
-              "subs     r2, %[adres__]            \n\t"
-              "beq      _Zb_%=                    \n\t"
-              "bkpt                               \n\t"   // чужой хозяин
-              "nop                                \n\t"
-    "_Zb_%=:" "mov      r1, #2                    \n\t"   // флаг обработки для sTask_nil, 2 = free (malloc_adres)
-              "strb     r1, [r3, #15]             \n\t"   // флаг запроса на обработку
-              //"pop      {r1, r2, r3}              \n\t"
-              "SVC      0xA                       \n\t" // нить отложенных заданий
-               :: [adres__] "r" (malloc_adres): "memory", "r1", "r2", "r3" );
+              "ldr      r1, [r1]                  \n\t"   // активная задача
+              "str      %[adres__], [r1, #20]     \n\t"   // malloc_adres
+              "mov      %[adres__], #2            \n\t"   // флаг обработки для sTask_nil, 2 = free (malloc_adres)
+              "strb     %[adres__], [r1, #15]     \n\t"   // флаг запроса на обработку
+              "svc      0xA                       \n\t" // нить отложенных заданий
+              "pop      {r0, r1}                  \n\t"
+               :: [adres__] "r" (malloc_adres): "memory" );
 }
 
 /// sTask_wake (глобальный флаг) разбудить задачу
-static inline sTask_wake(uint32_t* task_wake_flag)
+__attribute__( ( always_inline ) ) static inline sTask_wake(uint32_t* task_wake_flag)
 {
 asm volatile  ("push   {r2}                \n\t"
                 "mov    r2, %[__wake_flag]  \n\t"
@@ -123,7 +132,7 @@ asm volatile  ("push   {r2}                \n\t"
 
 
 /// sTask_wait (глобальный флаг) остановить задачу в ожидание пинка
-static inline sTask_wait(uint32_t* task_wait_flag)
+__attribute__( ( always_inline ) ) static inline sTask_wait(uint32_t* task_wait_flag)
 {
 asm volatile  ("push   {r2}                \n\t"
                 "mov    r2, %[__wait_flag]  \n\t"
@@ -135,7 +144,7 @@ asm volatile  ("push   {r2}                \n\t"
 
 
 /// sDelay_mc (в миллисекундах)
-static inline sDelay_mc(uint32_t Delay_mc)
+__attribute__( ( always_inline ) ) static inline sDelay_mc(uint32_t Delay_mc)
 {
 asm volatile  ("push   {r2}                \n\t"
                 "mov    r2, %[__Delay_mc]   \n\t"
@@ -147,7 +156,7 @@ asm volatile  ("push   {r2}                \n\t"
 /// Старт ОS
 /// частота ядра в гц, размер стека майна,
 ///       > размер стека прерываний, стартовое время задачи в микросекундах
-static inline setup_run(uint32_t __SYSHCLK,
+__attribute__( ( always_inline ) ) static inline setup_run(uint32_t __SYSHCLK,
                         uint32_t _main_size,
                         uint32_t NVIC_size,
                         uint32_t task_time_us )
@@ -167,7 +176,7 @@ asm volatile    ("push {r4,lr} \n\t"
 }
 
 /// Барьер оптимизатора GCC
-static inline __memory(void){asm volatile ("nop" : : : "memory");}
+__attribute__( ( always_inline ) ) static inline __memory(void){asm volatile ("nop" : : : "memory");}
 
 
 /// Включить прерывание, преоритет (от 14 до 1)
@@ -176,7 +185,7 @@ static inline  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority)
 asm volatile ("push     {r1, r2}       \n\t"
               "mov      r1, %[IRQ]      \n\t"
               "mov      r2, %[PRIORIT]  \n\t"
-              "SVC      0x0             \n\t"
+              "svc      0x0             \n\t"
               "pop      {r1, r2}        \n\t"
                :
                : [IRQ] "r" (IRQn),[PRIORIT] "r" (priority):"memory");
@@ -189,7 +198,7 @@ __attribute__( ( always_inline ) ) static inline sNVIC_DisableIRQ(IRQn_Type IRQn
 {
 asm volatile ("push    {r1}        \n\t"
                "mov     r1, %[IRQ]  \n\t"
-               "SVC     0x1         \n\t"
+               "svc     0x1         \n\t"
                "pop     {r1}        \n\t"
                :
                : [IRQ] "r" (IRQn):"memory");
@@ -215,16 +224,16 @@ register volatile uint32_t func_massif4__   asm     ("r4") = task_func_massif4_d
 
 
     asm volatile  ( "push    {r4, r5, r6}   \n\t"
-                     "SVC     0x4            \n\t"  // "_Zd_%=:"
-                //    "cbz    r5, _Zc_%=      \n\t"
-              //      "movw   r5, #0x1024     \n\t"
-               //     "movt   r5, #0x4000     \n\t"
-               //     "ldr    r6, [r5, #8]    \n\t"   // TIM6_ARR
-               //     "str    r6, [r5]        \n\t"   // TIM6_CNT
-               //     "nop                    \n\t"   // уступить время
-               //     "nop                    \n\t"   // недостаток места
-               //     "b      _Zd_%=          \n\t"
-                     "pop     {r4, r5, r6}   \n\t" // "_Zc_%=:"
+     "_Zd_%=:"      "svc     0x4            \n\t"  //
+                    "cbz    r5, _Zc_%=      \n\t"
+                    "movw   r5, #0x1024     \n\t"
+                    "movt   r5, #0x4000     \n\t"
+                    "ldr    r6, [r5, #8]    \n\t"   // TIM6_ARR
+                    "str    r6, [r5]        \n\t"   // TIM6_CNT
+                    "nop                    \n\t"   // уступить время
+                    "nop                    \n\t"   // недостаток места
+                    "b      _Zd_%=          \n\t"
+     "_Zc_%=:"      "pop     {r4, r5, r6}   \n\t"
                   :
                   :  "r" (taskS_func), "r" (task_size), "r" (task_time_rate), "r" (task_func_name),
                      "r" (task_func_massif4_data)
@@ -234,7 +243,7 @@ register volatile uint32_t func_massif4__   asm     ("r4") = task_func_massif4_d
 
 
 /// Уступить время - только внутри работающей задачи
-static inline sTask_skip (void)
+__attribute__( ( always_inline ) ) static inline sTask_skip (void)
 {
 asm volatile     ( "push   {r0, r1}            \n\t"
                     "movw   r0, #0x1024         \n\t"
@@ -248,17 +257,17 @@ asm volatile     ( "push   {r0, r1}            \n\t"
 }
 
 /// Убить задачу - только внутри работающей задачи
-static inline sTask_kill(void){__asm volatile("SVC 0x5":::"memory");}
+// static void sTask_kill(void)
 
 
 static uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
 {
 register volatile uint32_t Random_max__     asm     ("r0") = Random_max;
 register volatile uint32_t Random_min__     asm     ("r1") = Random_min;
-__ASM volatile("SVC    0x3             \n\t"
+__ASM volatile("svc    0x3             \n\t"
             : "=r" (Random_max__): "r" (Random_max), "r" (Random_min):);
 return Random_max__;
 }
 
-#endif _RtoS.h
-#define _RtoS.h
+#endif _RtoS_
+#define _RtoS_
