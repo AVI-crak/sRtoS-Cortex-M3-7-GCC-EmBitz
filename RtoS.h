@@ -22,18 +22,20 @@
 /// sSustem_task - формат банка
 struct
 {
-  struct task* activ;               ///- Адрес активной задачи
-  struct task* delay;               ///- Адрес спящих задачь
-  struct task* wait;                ///- Адрес задач ожидающих пинка
-  struct task* hold;                ///- Адрес задач на обработку памяти
-  __IO uint32_t NVIC_size_max;      ///- использованный размер стека прерываний
-  __IO uint32_t NVIC_size;          ///- размер стека прерываний, задаётся при старте
-  __IO uint32_t Main_size_start;    ///- размер стека майна// удачный стек
-  __IO uint32_t sSYSHCLK;           ///- системная частота, гц - задается при старте
-  __IO uint32_t tik_real;           ///- 100% тиков на задачу // us на задачу при старте
-  __IO uint32_t malloc_start;       ///- первый адрес malloc
-  __IO uint32_t malloc_stop;        ///- последний адрес malloc
-  __IO uint32_t task_stop;          ///- последний адрес стека
+  struct task* activ;               ///#00- Адрес активной задачи
+  struct task* delay;               ///#04- Адрес спящих задачь
+  struct task* wait;                ///#08- Адрес задач ожидающих пинка
+  struct task* hold;                ///#12- Адрес задач на обработку памяти
+  __IO uint32_t NVIC_size_max;      ///#16- использованный размер стека прерываний
+  __IO uint32_t NVIC_size;          ///#20- размер стека прерываний, задаётся при старте
+  __IO uint32_t Main_size_start;    ///#24- размер стека майна// удачный стек
+  __IO uint32_t sSYSHCLK;           ///#28- системная частота, гц - задается при старте
+  __IO uint32_t tik_real;           ///#32- 100% тиков на задачу // us на задачу при старте
+  __IO uint32_t malloc_start;       ///#36- первый адрес malloc
+  __IO uint32_t malloc_stop;        ///#40- последний адрес malloc
+  __IO uint32_t task_stop;          ///#44- последний адрес стека
+  __IO uint32_t alarm_mc;           ///#48- время для задержки выполнения условия
+
 }sSustem_task ;
 
 
@@ -65,19 +67,36 @@ volatile uint32_t Random_register[3];
 3 удалить все области памяти задачи
 4 корректно убить задачу
 
-3 отдать область памяти по адресу имени с потверждением о принятии (память ничейная)
-4 подтверждение о приняти области памяти (память принадлежит новой нити)
-5 создать кольцевую очередь для записи
-6 создать кольцевую очередь для чтения
-5 бла бла бла
+
 254
 
 маллок
 0x00, #00, 32b, смещение до нового блока
 0x04, #04, 32b, имя задачи
-0x04, #08, 32b, дата (минимум 4b)
+0x04, #08, 32b, дата (минимум 32b)
 **/
 
+/// Функция отложенного события по циклическому таймеру
+/// пример
+/// static uint32_t alarm_mc2;
+/// if (sTask_alarm_mc(&alarm_mc1,1000)) { действие каждую новую секунду }
+static uint32_t sTask_alarm_mc(uint32_t * timer_name, uint32_t timer_mc)
+{
+    uint32_t alarm;
+
+    if ( *timer_name ==0)
+    {
+        if  ((sSustem_task.alarm_mc + timer_mc) < sSustem_task.alarm_mc)
+            alarm = 0; else *timer_name = sSustem_task.alarm_mc + timer_mc;
+    }else
+    {
+        if  (sSustem_task.alarm_mc > *timer_name)
+           {alarm = 1; *timer_name = 0;}
+            else alarm =0;
+    }
+
+return alarm;
+}
 
 
 /// Выделить память (размер)
@@ -180,7 +199,7 @@ __attribute__( ( always_inline ) ) static inline __memory(void){asm volatile ("n
 
 
 /// Включить прерывание, преоритет (от 14 до 1)
-static inline  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority)
+__attribute__( ( always_inline ) ) static inline  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority)
 {
 asm volatile ("push     {r1, r2}       \n\t"
               "mov      r1, %[IRQ]      \n\t"
@@ -243,7 +262,7 @@ register volatile uint32_t func_massif4__   asm     ("r4") = task_func_massif4_d
 
 
 /// Уступить время - только внутри работающей задачи
-__attribute__( ( always_inline ) ) static inline sTask_skip (void)
+static void sTask_skip (void)
 {
 asm volatile     ( "push   {r0, r1}            \n\t"
                     "movw   r0, #0x1024         \n\t"
@@ -260,12 +279,12 @@ asm volatile     ( "push   {r0, r1}            \n\t"
 // static void sTask_kill(void)
 
 
-static uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
+static uint32_t sRandom( uint32_t Random_max,uint32_t Random_min)
 {
 register volatile uint32_t Random_max__     asm     ("r0") = Random_max;
 register volatile uint32_t Random_min__     asm     ("r1") = Random_min;
-__ASM volatile("svc    0x3             \n\t"
-            : "=r" (Random_max__): "r" (Random_max), "r" (Random_min):);
+asm volatile ("svc    0x3             \n\t"
+              : "=r" (Random_max__): "r" (Random_max), "r" (Random_min):);
 return Random_max__;
 }
 

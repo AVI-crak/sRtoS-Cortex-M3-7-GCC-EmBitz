@@ -287,6 +287,9 @@ __Delete_Task:
 __sDelay_work:                              // обслуживание задержки
             ldr     r0, = sSustem_task      // адрес переменной с адресом активной задачи
             ldr     r1, [r0, #4]            // первая спящая задача
+            ldr     r2, [r0, #48]
+            add     r2, r2, #1
+            str     r2, [r0, #48]           //alarm_mc - время для задержки выполнения условия
             cbz     r1, __sDelay_exit
             push    {R4, r5, r6}
             ldr     r5, [r1, #4]            // хвост не обработанной спящей
@@ -613,7 +616,9 @@ _Start_task03:
             add     r1, r1, #15     //маллок_адрес
             bfc     r1, #0, #4
             str     r1, [r5, #36]   //malloc_start - первый адрес malloc
-            str     r1, [r5, #40]  //malloc_stop - последний адрес malloc
+            str     r1, [r5, #40]   //malloc_stop - последний адрес malloc
+            mov     r1, #0
+            str     r1, [r5, #48]   //alarm_mc - время для задержки выполнения условия
             mov     r1, #3
             cpsie    i
             msr	   CONTROL, r1
