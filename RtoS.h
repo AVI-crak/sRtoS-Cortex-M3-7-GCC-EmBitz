@@ -76,6 +76,33 @@ volatile uint32_t Random_register[3];
 0x04, #08, 32b, дата (минимум 32b)
 **/
 
+/// запрос ресурса, бесконечный цикл - пока не освободится
+static void sTask_resource_ask (uint32_t *name_resource)
+{
+asm volatile  ( "push   {r4}                    \n\t"
+    "_Zfa_%=:"  "mov    r4, %[__res]            \n\t"
+                "svc    0xC                     \n\t"
+                "cmp    r4, #0                  \n\t"
+                "beq    _Zfa_%=                 \n\t"   // занято, повторяем
+                "pop    {r4}                    \n\t"
+                :: [__res] "r" (name_resource):);
+}
+
+/// Освободить ресурс
+static void sTask_resource_free (uint32_t *name_resource)
+{
+asm volatile  ( "push   {r4, r5}                \n\t"
+                "ldr     r4,  =sSustem_task     \n\t"
+                "ldr     r4, [r4]               \n\t"
+                "ldr     r4, [r4, #28]          \n\t"   // читаем имя активной задачи
+                "ldr     r5, [%[__res]]         \n\t"
+                "subs    r4, r4, r5             \n\t"
+                "it      eq                     \n\t"
+                "streq   r4, [%[__res]]         \n\t"
+                "pop    {r4, r5}                \n\t"
+                :: [__res] "r" (name_resource):);
+}
+
 /// Функция отложенного события по циклическому таймеру
 /// пример
 /// static uint32_t alarm_mc2;
@@ -165,7 +192,7 @@ asm volatile  ("push   {r2}                \n\t"
 /// sDelay_mc (в миллисекундах)
 __attribute__( ( always_inline ) ) static inline sDelay_mc(uint32_t Delay_mc)
 {
-asm volatile  ("push   {r2}                \n\t"
+asm volatile   ("push   {r2}                \n\t"
                 "mov    r2, %[__Delay_mc]   \n\t"
                 "svc    0x7                 \n\t"
                 "pop    {r2}                \n\t"
@@ -276,7 +303,7 @@ asm volatile     ( "push   {r0, r1}            \n\t"
 }
 
 /// Убить задачу - только внутри работающей задачи
-// static void sTask_kill(void)
+//static void sTask_kill(void)
 
 
 static uint32_t sRandom( uint32_t Random_max,uint32_t Random_min)
@@ -287,6 +314,8 @@ asm volatile ("svc    0x3             \n\t"
               : "=r" (Random_max__): "r" (Random_max), "r" (Random_min):);
 return Random_max__;
 }
+
+
 
 #endif _RtoS_
 #define _RtoS_

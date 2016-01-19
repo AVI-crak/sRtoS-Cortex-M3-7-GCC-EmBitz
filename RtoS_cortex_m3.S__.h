@@ -49,7 +49,8 @@ SVC_Table:
     .hword   ((__sTask_wait - SVC_Table)/2)      //8
     .hword   ((__sTask_wake - SVC_Table)/2)      //9
     .hword   ((__nil_ - SVC_Table)/2)            //A
-    .hword   ((__nil_ww - SVC_Table)/2)       //B
+    .hword   ((__nil_ww - SVC_Table)/2)          //B
+    .hword   ((__sTask_ask - SVC_Table)/2)       //C
 
 
 
@@ -127,7 +128,7 @@ __malloc_in_0: //r7 - адрес возврата
 ___sRandom:
             ldr     r3, =Random_register
             ldmia   r3!, {r0-r2}           // читаем сохранённое
-            mov     r3, #48
+            mov     r3, #32
             cmp     r0, #0
             itt     eq
             movweq  r0, #0xD755
@@ -475,7 +476,26 @@ __nil_ww:  // возврат из нити отложенных задач r7 - адрес размер
             str     r3, [r0, #4]            // хвост активной на маллок
             bx      lr
 
-
+__sTask_ask: // запрос ресурса  name_resource >> ("r4") >> resource_flag__
+            mov     r1, r4
+            ldr     r4, [r4]                // читаем хозяина
+            ldr     r2,  =sSustem_task
+            ldr     r2, [r2]                 // активная задача
+            ldr     r2, [r2, #28]            // имя
+            cmp     r4, r2
+            it      ne
+            cmpne   r4, #0
+            itt     ne
+            movne   r4, #0
+            bne     __ask_error
+            mov     r4, r2
+            str     r2, [r1]                // новый хозяин
+            bx      lr
+__ask_error:
+            ldr     r2, =__TIM6_CR1
+            ldr     r0, [r2, #44]
+            str     r0, [r2, #36]
+            bx      lr
 
 
  .size SVC_Handler, . - SVC_Handler
@@ -645,7 +665,7 @@ __sTask_nil_Nane:
 
 
  .align 4
- .globl    sTask_kill
+ .global    sTask_kill
  .type    sTask_kill, %function
 sTask_kill:
             push    {r0, r1, r2, r3 }
@@ -713,6 +733,8 @@ PendSV_step: // r0 - новая задача
             str     r1, [r3, #20]           // перезаруск
             ldmia   r2!, {r4-r11}           // читаем сохранённое
             msr	    psp, r2                 // переписываем стек
+         //   ldr     r2, = 0x40007414
+         //   str     r0, [r2]
 __PendSV_error:
             bx      lr
 
@@ -895,6 +917,4 @@ sTask_nil_step:
             b       sTask_nil_re
 
  .size sTask_nil, . - sTask_nil
-
-
 
