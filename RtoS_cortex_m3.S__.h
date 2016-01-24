@@ -1,7 +1,7 @@
 // Cortex-M3 GCC EmBitz 0.40
 /* им€ файла */
 /* RtoS_cortex_m3.S */
-/* процент готовности 34% */
+/* процент готовности 35% */
 
 /* мыло дл€ заинтересованных */
 /* videocrak@maol.ru */
@@ -128,7 +128,7 @@ __malloc_in_0: //r7 - адрес возврата
 ___sRandom:
             ldr     r3, =Random_register
             ldmia   r3!, {r0-r2}           // читаем сохранЄнное
-            mov     r3, #32
+            mov     r3, #48
             cmp     r0, #0
             itt     eq
             movweq  r0, #0xD755
@@ -588,7 +588,7 @@ _Start_task02:
             mrs	    r2, PSP
             sub     r2, r0, r2
             strh    r2, [r0, #26]   //мах размер стека (мах заюзанный размер стека)
-            ldr     r1, =__Main_Name
+            ldr     r1, = __Main_Name
             str     r1, [r0, #28]
             add     r0, r0, #32
             mov     r3, r0
@@ -782,7 +782,7 @@ sTask_nil:
 sTask_nil_re:
             ldr     r0, [r12, #12]          // адрес задач на обработку пам€ти
             cbz     r0, __malloc_0          // то ждЄм физики
-            ldrb    r1, [r0, #15]           // читем флаг
+            ldrb    r1, [r0, #15]           // читаем флаг
             tbh     [pc, r1, lsl #1]
 
 __malloc_Table:
@@ -861,40 +861,48 @@ __free:
             addeq   r2, r2, #4
             streq   r2, [r12, #40]          // нова€ граница
 __free_error:
+            mov     r7, #0
             svc     0xB                     // __nil_ww
             b       sTask_nil_re            // новый круг
 
 __free_all:
-            ldr     r3, [r0, #28]           // читем хоз€ина
-            mov     r1, r10                 // старт
-            mov     r2, #0
-            mov     r5, #0
-            mov     r6, #0
+            ldr     r2, [r0, #28]           // читем хоз€ина
+            mov     r1, r10                 // старый адрес
 __free_all_1: // r1 старт
-            ldr     r4, [r1]
-            ldr     r5, [r1, #4]
-            cmp     r5, r3
-            itt     eq                      // нашлось
-            streq   r2, [r1, #4]            // стираем
-            moveq   r5, #0
-            cmp     r2, r5
-            it      ne                      // осталс€ хоз€ин
-            addne   r6, r4, r1
-            cmp     r4, r2
-            itt     ne                      // не последн€€
-            addne   r1, r4, r1
+            ldr     r7, [r1]                // читаем размер
+            ldr     r4, [r1, #4]            // читаем хоз€ина
+            subs    r6, r2, r4
+            ite     eq                      // хоз€ин совпал
+            streq   r6, [r1, #4]            // затираем
+            movne   r6, r4
+            cbz     r7, __free_all_3        // выход
+            cmp     r6, #0
+            itt     ne
+            addne   r1, r1, r7
             bne     __free_all_1
+            add     r3, r1, r7
+__free_all_2:
+            ldr     r4, [r3]                // читаем размер
+            cbz     r4, __free_all_3        // выход
+            ldr     r5, [r3, #4]            // читаем хоз€ина
+            subs    r8, r2, r5
+            it      ne                      // хоз€ин совпал
+            movne   r8, r5
+            cmp     r8, #0
+            it      ne
+            bne     __free_all_1
+            sub     r5, r3, r1
+            add     r7, r5, r4
+            str     r7, [r1]
+            add     r3, r3, r4
+            b       __free_all_2
+__free_all_3:
+            cmp     r6, #0
+            ittt    eq
+            streq   r6, [r1]
+            addeq   r1, r1, #8
+            streq   r1, [r12, #40]          // нова€ граница
             mov     r7, #0
-            cmp     r6, r2
-            itt     eq
-            streq   r10, [r12, #40]         // нова€ граница
-            beq     __free_error
-            ldr     r4, [r6]
-            add     r4, r6, r4
-            str     r2, [r4]                // стЄрли последний указатель
-            str     r2, [r4, #4]            // на вс€кий пожарный
-            add     r2, r4, #8
-            str     r4, [r12, #40]          // нова€ граница
             svc     0xB                     // __nil_ww
             b       sTask_nil_re            // новый круг
 

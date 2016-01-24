@@ -1,7 +1,7 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /// имя файла
 /// RtoS.h
-/// процент готовности 34%
+/// процент готовности 35%
 
 /// мыло для заинтересованных
 /// videocrak@maol.ru
@@ -71,12 +71,16 @@ volatile uint32_t Random_register[3];
 254
 
 маллок
-0x00, #00, 32b, смещение до нового блока
+0x00, #00, 32b, размер (смещение до нового блока)
 0x04, #04, 32b, имя задачи
-0x04, #08, 32b, дата (минимум 32b)
+0x08, #08, 32b, дата (минимум 32b)
 **/
 
-/// запрос ресурса, бесконечный цикл - пока не освободится
+
+
+
+
+/// Запрос ресурса, бесконечный цикл - пока не освободится
 static void sTask_resource_ask (uint32_t *name_resource)
 {
 asm volatile  ( "push   {r4}                    \n\t"
@@ -167,24 +171,24 @@ asm volatile ("push     {r0, r1}                  \n\t"
 }
 
 /// sTask_wake (глобальный флаг) разбудить задачу
-__attribute__( ( always_inline ) ) static inline sTask_wake(uint32_t* task_wake_flag)
+__attribute__( ( always_inline ) ) static inline sTask_wake(uint32_t* task_global_flag)
 {
 asm volatile  ("push   {r2}                \n\t"
                 "mov    r2, %[__wake_flag]  \n\t"
                 "svc    0x9                 \n\t"
                 "pop    {r2}                \n\t"
-                :: [__wake_flag] "r" (task_wake_flag):);
+                :: [__wake_flag] "r" (task_global_flag):);
 }
 
 
 /// sTask_wait (глобальный флаг) остановить задачу в ожидание пинка
-__attribute__( ( always_inline ) ) static inline sTask_wait(uint32_t* task_wait_flag)
+__attribute__( ( always_inline ) ) static inline sTask_wait(uint32_t* task_global_flag)
 {
 asm volatile  ("push   {r2}                \n\t"
                 "mov    r2, %[__wait_flag]  \n\t"
                 "svc    0x8                 \n\t"
                 "pop    {r2}                \n\t"
-                :: [__wait_flag] "r" (task_wait_flag):);
+                :: [__wait_flag] "r" (task_global_flag):);
 }
 
 
@@ -319,3 +323,11 @@ return Random_max__;
 
 #endif _RtoS_
 #define _RtoS_
+
+
+
+
+
+
+
+
