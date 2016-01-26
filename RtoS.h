@@ -1,7 +1,7 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /// имя файла
 /// RtoS.h
-/// процент готовности 35%
+/// процент готовности 36%
 
 /// мыло для заинтересованных
 /// videocrak@maol.ru
@@ -152,7 +152,7 @@ asm volatile ("push     {r1, r2, r3}        \n\t"
               "mov      %[malloc_ad__], r2  \n\t"
               "pop      {r1, r2, r3}        \n\t"
                : [malloc_ad__] "=r" (malloc_adres)
-               : [malloczize__] "r" (malloc_zize):  );
+               : [malloczize__] "r" (malloc_zize): "memory" );
 return malloc_adres;
 }
 
@@ -310,12 +310,12 @@ asm volatile     ( "push   {r0, r1}            \n\t"
 //static void sTask_kill(void)
 
 
-static uint32_t sRandom( uint32_t Random_max,uint32_t Random_min)
+static uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
 {
 register volatile uint32_t Random_max__     asm     ("r0") = Random_max;
 register volatile uint32_t Random_min__     asm     ("r1") = Random_min;
 asm volatile ("svc    0x3             \n\t"
-              : "=r" (Random_max__): "r" (Random_max), "r" (Random_min):);
+              : "=r" (Random_max__): "r" (Random_max), "r" (Random_min):"memory");
 return Random_max__;
 }
 
