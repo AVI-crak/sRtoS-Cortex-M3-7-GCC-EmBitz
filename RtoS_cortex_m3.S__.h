@@ -1,7 +1,7 @@
 // Cortex-M3 GCC EmBitz 0.40
 /* имя файла */
 /* RtoS_cortex_m3.S */
-/* процент готовности 35% */
+/* процент готовности 36% */
 
 /* мыло для заинтересованных */
 /* videocrak@maol.ru */
@@ -54,7 +54,7 @@ SVC_Table:
 
 
 
-
+ .align 4
 __EnableIRQS: // r1 IRQn, r2 Priority
             push    {r4}
             movw    r4, #0xE70C
@@ -98,6 +98,7 @@ EnableIrq_error:
             pop     {r4}
             bx      lr
 
+ .align 4
 __DisableIRQS:
 //NVIC->ICER[((uint32_t)(IRQn) >> 5)] = (1 << ((uint32_t)(IRQn) & 0x1F)); /* disable interrupt */
             cmp     r1, __TIM_Delay_IRQn
@@ -112,9 +113,10 @@ __DisableIRQS:
             movt    r3, #0xE000
             str     r2, [r3, r0]
             bx      lr
-
+ .align 4
 __malloc_in_0: //r7 - адрес возврата
-            add     r0, r3, #12
+            add     r0, r2, #12
+            add     r0, r0, r6
             ldr     r2, [r12, #44]          // читем task_stop - последний адрес стека
             cmp     r2, r0
             itet    hi                      // есть место
@@ -125,6 +127,7 @@ __malloc_in_0: //r7 - адрес возврата
             strhi   r0, [r12, #40]          // новый malloc_stop - последний адрес malloc
             bx      lr
 
+ .align 4
 ___sRandom:
             ldr     r3, =Random_register
             ldmia   r3!, {r0-r2}           // читаем сохранённое
@@ -159,6 +162,7 @@ ___sRandom_1:
             str     r0, [r3]
             bx      lr
 
+ .align 4
 __sTask_new: // [psp +0]) void (*taskS_func()), [psp +4] task_size ,
              // [psp +8] task_time_rate , [psp +12] char* const task_func_name
              // pop {r4} = *func_parametr;
@@ -271,7 +275,7 @@ sTask_new_error:
             mov     r5, #0
             bx      lr
 
-
+ .align 4
 __Delete_Task:
             ldr     r3, [r12, #12]           // задача из обработки маллок
             ldr     r1, [r3, #4]            // хвост из обработки маллок
@@ -284,7 +288,7 @@ __Delete_Task:
             streq   r2, [r12, #12]           // закрыли
             bx      lr
 
-
+ .align 4
 __sDelay_work:                              // обслуживание задержки
             ldr     r0, = sSustem_task      // адрес переменной с адресом активной задачи
             ldr     r1, [r0, #4]            // первая спящая задача
@@ -327,7 +331,7 @@ __sDelay_cut:
 __sDelay_exit:
             bx      lr
 
-
+ .align 4
 __sDelay_new:       // r2 время
             ldr     r0,  =sSustem_task
             ldr     r1, [r0]                // активная задача
@@ -356,7 +360,7 @@ __sDelay_new_next:
             ldr     r0, [r0]                // активная задача
             b       PendSV_step
 
-
+ .align 4
 __sTask_wait: // R2(глобал флаг - адрес)
             ldr     r0,  =sSustem_task
             mov     r1, #1
@@ -387,7 +391,7 @@ __sTask_wait_next:
             ldr     r0, [r0]                // активная задача
             b       PendSV_step
 
-
+ .align 4
 __sTask_wake: // R2(глобал флаг - адрес) разбудить
             ldr     r3, [r2]                // читаем глобальный флаг
             cbz     r3, __sTask_wake_exit   // уже запускали
@@ -422,7 +426,7 @@ __sTask_wake_next:
 __sTask_wake_exit:
             bx      lr
 
-
+ .align 4
 __nil_: // нить отложенных заданий
             ldr     r0,  =sSustem_task
             ldr     r3, [r0]              // активная задача
@@ -452,7 +456,7 @@ __nil_next:
             ldr     r0, [r0]                // активная задача
             b       PendSV_step
 
-
+ .align 4
 __nil_ww:  // возврат из нити отложенных задач r7 - адрес размер
          //   ldr     r12,  =sSustem_task
             ldr     r3, [r12, #12]           // задача из обработки маллок
@@ -476,6 +480,7 @@ __nil_ww:  // возврат из нити отложенных задач r7 - адрес размер
             str     r3, [r0, #4]            // хвост активной на маллок
             bx      lr
 
+ .align 4
 __sTask_ask: // запрос ресурса  name_resource >> ("r4") >> resource_flag__
             mov     r1, r4
             ldr     r4, [r4]                // читаем хозяина
@@ -733,8 +738,6 @@ PendSV_step: // r0 - новая задача
             str     r1, [r3, #20]           // перезаруск
             ldmia   r2!, {r4-r11}           // читаем сохранённое
             msr	    psp, r2                 // переписываем стек
-         //   ldr     r2, = 0x40007414
-         //   str     r0, [r2]
 __PendSV_error:
             bx      lr
 
@@ -795,56 +798,60 @@ __malloc_Table:
 
 
 
-
+ .align 4
 __malloc_0: // флаг0 - ошибка
             b       sTask_nil_step
 
-
+ .align 4
 __malloc_in: // флаг 1 -
             ldr     r2, [r0, #20]           // читем malloc_zize задачи
             add     r2, r2, #11             // +заголовок
             bfc     r2, #0, #2
             ldr     r9, [r0, #28]           // хозяин
-            mov     r7, #0
+            mov     r7, #1
             mov     r6, r10
 __malloc_in_for:    // r6 - адрес старта, R7 - сдвиг
-            add     r4, r6, r7
-            ldr     r3, [r4]                // новая голова
-            ldr     r5, [r4, #4]            // читаем хозяина
+            ldr     r3, [r6]                // читаем размер
+            cbz     r3, __malloc_in_01      // последний
+            ldr     r5, [r6, #4]            // читаем хозяина
             cmp     r5, #0
-            ittt    ne                      // есть хозяин
-            movne   r7, #0
-            addne   r6, r4, r3
+            itt     ne
+            addne   r6, r3, r6
             bne     __malloc_in_for
-            cbnz    r3, __malloc_in_1       // не последняя
-            add     r3, r6, r2
-            add     r7, r6, #8              // адрес для передачи в функцию
+            add     r5, r2, #12
+            cmp     r3, r5
+            itt     lo                      // нет места
+            addlo   r6, r6, r3
+            blo     __malloc_in_for
             svc     0x2                     // __malloc_in_0 - коррекция пределов
             cbz     r7, __free_error        // неудача -   нулевой адрес
             str     r2, [r6]                // новый размер
             str     r9, [r6, #4]            // новый хозяин
-            str     r5, [r3]                // новая последняя
-            str     r5, [r3, #4]            // без хозяина
+            sub     r3, r3, r2
+            add     r5, r6, r3
+            str     r3, [r5]                // размер остатка
+            mov     r3, #0
+            str     r3, [r5, #4]            // затёрли хозяина
+__malloc_in_00:
+            cmp     r2, #12
+            ittt    hs
+            subhs   r2, r2, #4
+            strhs   r3, [r6, r2]
+            bhs     __malloc_in_00
+            add     r7, r6, #8              // адрес для передачи в функцию
             svc     0xB                     // __nil_ww
             b       sTask_nil_re            // новый круг
-__malloc_in_1:                              // не последняя
-            add     r7, r7, r3
-            cmp     r2, r7
-            bhi     __malloc_in_for         // > мало места
+__malloc_in_01:
+            svc     0x2                     // __malloc_in_0 - коррекция пределов
+            cbz     r7, __free_error        // неудача -   нулевой адрес
             str     r2, [r6]                // новый размер
             str     r9, [r6, #4]            // новый хозяин
-            add     r1, r6, #8
-            sub     r3, r7, r2
-            cmp     r3, #12
-            ittte   hs                      // есть остаток >=  для нового
-            addhs   r6, r6, r2
-            strhs   r3, [r6]                // сдвиг до остатка
-            strhs   r5, [r6, #4]            // без хозяина
-            strlo   r7, [r6]
-            mov     r7, r1                  // адрес для передачи в функцию
-            svc     0xB                     // __nil_ww
-            b       sTask_nil_re            // новый круг
+            add     r4, r6, r2
+            str     r3, [r4]
+            str     r3, [r4, #4]
+            b       __malloc_in_00
 
+ .align 4
 __free:
             ldr     r2, [r0, #20]           // читем free (malloc_adres) задачи
             ldr     r3, [r0, #28]           // читем хозяина
@@ -852,24 +859,21 @@ __free:
             subs    r1, r3, r4              // 0
             bne     __free_error
             str     r1, [r2, #-4]           // затираем хозяина
-            ldr     r5, [r2, #-8]           // читаем размер
-            add     r3, r5, r2
-            ldr     r4, [r3, #-8]           // читаем следующий маллок
-            cmp     r4, #0                  // если там пусто
-            ittt    eq
-            streq   r1, [r2, #-8]           // стёрли указатель
-            addeq   r2, r2, #4
-            streq   r2, [r12, #40]          // новая граница
+            mvn     r2, #0
+            mov     r1, r10                 // старый адрес
+            b       __free_all_1
 __free_error:
             mov     r7, #0
             svc     0xB                     // __nil_ww
             b       sTask_nil_re            // новый круг
 
+ .align 4
 __free_all:
             ldr     r2, [r0, #28]           // читем хозяина
             mov     r1, r10                 // старый адрес
 __free_all_1: // r1 старт
             ldr     r7, [r1]                // читаем размер
+__free_all_2:
             ldr     r4, [r1, #4]            // читаем хозяина
             subs    r6, r2, r4
             ite     eq                      // хозяин совпал
@@ -881,7 +885,6 @@ __free_all_1: // r1 старт
             addne   r1, r1, r7
             bne     __free_all_1
             add     r3, r1, r7
-__free_all_2:
             ldr     r4, [r3]                // читаем размер
             cbz     r4, __free_all_3        // выход
             ldr     r5, [r3, #4]            // читаем хозяина
@@ -889,28 +892,25 @@ __free_all_2:
             it      ne                      // хозяин совпал
             movne   r8, r5
             cmp     r8, #0
-            it      ne
-            bne     __free_all_1
-            sub     r5, r3, r1
-            add     r7, r5, r4
-            str     r7, [r1]
-            add     r3, r3, r4
-            b       __free_all_2
+            ittt    eq
+            addeq   r7, r7, r4
+            streq   r7, [r1]
+            beq     __free_all_2
+            add     r1, r1, r7
+            b       __free_all_1
 __free_all_3:
             cmp     r6, #0
             ittt    eq
             streq   r6, [r1]
             addeq   r1, r1, #8
             streq   r1, [r12, #40]          // новая граница
-            mov     r7, #0
-            svc     0xB                     // __nil_ww
-            b       sTask_nil_re            // новый круг
+            b       __free_error
 
-
+ .align 4
 __sTask_kill:
             svc     0x5                     // __Delete_Task
             b       sTask_nil_re            // новый круг
-
+ .align 4
 sTask_nil_step:
             ldr     r0, [r12]               // адрес активной задачи (себя)
             ldr     r1, [r0]                // следующая задача
