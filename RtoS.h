@@ -1,7 +1,8 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /// имя файла
 /// RtoS.h
-/// процент готовности 39%
+/// процент готовности 40%
+/// размер rom 2446bб ram 128b*n + 64b
 
 /// мыло для заинтересованных
 /// videocrak@maol.ru
@@ -35,6 +36,17 @@ struct
   __IO uint32_t alarm_mc;           ///#48- время для задержки выполнения условия
 
 }sSustem_task ;
+
+
+/*
+struct
+{
+    uint16_t task_nomer_f[10];
+    char* task_names_f[10];
+
+}sSustem_tas;
+//sSustem_task.activ -> task_names
+*/
 
 
 
@@ -74,25 +86,57 @@ volatile uint32_t Random_register[3];
 0x00, #00, 32b, 9b (номер задачи) - 23b (адрес смещения)
 0x04, #04, 32b, дата (минимум 32b)
 */
+/*
+#define ITM_Port8(n)    (*((volatile unsigned char *)(0xE0000000+4*n)))
+#define ITM_Port16(n)   (*((volatile unsigned short*)(0xE0000000+4*n)))
+#define ITM_Port32(n)   (*((volatile unsigned long *)(0xE0000000+4*n)))
 
+#define DEMCR           (*((volatile unsigned long *)(0xE000EDFC)))
+#define TRCENA          0x01000000
 
+void fputc(uint32_t ch) {
+ // if (DEMCR & TRCENA) {
+    while (ITM_Port32(0) == 0);
+    ITM_Port8(0) = ch;
+  }
+*/
+/*
+void sustem_data (void)
+{
+    uint32_t *tmp1;
+    uint32_t *tmp2 = 0;
+    uint32_t tmp3 = 0;
+    uint32_t tmp4;
+    tmp1 = sSustem_task.activ;
+    tmp2 = *tmp1;
+    while (!(tmp1 == tmp2))
+        {
+            tmp2 = *tmp2;
+            sSustem_tas.task_nomer_f [tmp3] = *(tmp2 +5);
+            sSustem_tas.task_names_f [tmp3] = *(tmp2 +7);
+            tmp3++;
 
-/// Отдать память другой нитке ( & link_memory, "task_func_name") (функция подтвержения)
+        }
+
+}
+*/
+
+/// Отдать память другой нитке ( & link_memory, "task_func_name") (функция подтверждения)
 static void sTask_memory_donate (uint32_t *link_memory, char* const task_func_name)
 {
 asm volatile  ( "svc    0xD                     \n\t"
                 "nop                            \n\t"
-                ::"r" (link_memory),"r" (task_func_name):);
+                ::"r" (link_memory),"r" (task_func_name):"memory");
 }
 
-/// Получить память от другой нитки ("task_func_name") (функция подтвержения)
+/// Получить память от другой нитки ("task_func_name") (функция подтверждения)
 static uint32_t sTask_memory_have (char* const task_func_name)
 {
 register volatile uint32_t malloc_adres asm  ("r0") = task_func_name;
 asm volatile  ( "svc    0xE                     \n\t"
                 "nop                            \n\t"
                 :"=r" (malloc_adres)
-                :"r" (task_func_name):);
+                :"r" (task_func_name):"memory");
 return malloc_adres;
 }
 
@@ -143,7 +187,7 @@ sSustem_task.activ->flag = 1;
 register *malloc_adres  asm ("r0") ;
 asm volatile ("mov      r0, %[malloc_zize_] \n\t"
               "svc      0xA                 \n\t"
-              : "=r" (malloc_adres): [malloc_zize_] "r" (malloc_zize):);   // нить отложенных заданий
+              : "=r" (malloc_adres): [malloc_zize_] "r" (malloc_zize):"memory");   // нить отложенных заданий
 return malloc_adres;
 }
 
@@ -154,7 +198,7 @@ void free (void* malloc_adres)
     sSustem_task.activ->flag = 2;
     asm volatile ("mov      r0, %[malloc_ad_]   \n\t"
                   "svc      0xA                 \n\t"
-                  :: [malloc_ad_] "r" (malloc_adres): "r0");   // нить отложенных заданий
+                  :: [malloc_ad_] "r" (malloc_adres): "r0","memory");   // нить отложенных заданий
 }
 
 /// sTask_wake (глобальный флаг) разбудить задачу
@@ -175,7 +219,7 @@ asm volatile  ("push   {r2}                \n\t"
                 "mov    r2, %[__wait_flag]  \n\t"
                 "svc    0x8                 \n\t"
                 "pop    {r2}                \n\t"
-                :: [__wait_flag] "r" (task_global_flag):);
+                :: [__wait_flag] "r" (task_global_flag):"memory");
 }
 
 
@@ -187,7 +231,7 @@ asm volatile   ("push   {r2}                \n\t"
                 "mov    r2, %[__Delay_mc]   \n\t"
                 "svc    0x7                 \n\t"
                 "pop    {r2}                \n\t"
-                :: [__Delay_mc] "r" (Delay_mc):);
+                :: [__Delay_mc] "r" (Delay_mc):"memory");
 }
 
 /// Старт ОS
