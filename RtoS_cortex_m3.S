@@ -55,8 +55,8 @@ SVC_Table:
     .hword   ((__nil_ - SVC_Table)/2)            //A
     .hword   ((__nil_ww - SVC_Table)/2)          //B
     .hword   ((__sTask_ask - SVC_Table)/2)       //C
-    .hword   ((__memory_d - SVC_Table)/2)        //D
-    .hword   ((__memory_r - SVC_Table)/2)        //E
+    .hword   ((__memory_donate - SVC_Table)/2)   //D
+    .hword   ((__memory_get - SVC_Table)/2)      //E
     .hword   ((__nil_nn - SVC_Table)/2)          //F
 
 
@@ -537,14 +537,14 @@ __ask_error:
             bx      lr
 
  .align 4
-__memory_d: // SVC 0xD
+__memory_donate: // SVC 0xD
             ldr     r0,  =sSystem_task
             ldr     r3, [r0]
             mov     r2, #5
             strb    r2, [r3, #15]           // פכאד - מעהאעü ןאלÿעü
             b       __nil_1
 
-__memory_r: // SVC 0xE
+__memory_get: // SVC 0xE
             ldr     r0,  =sSystem_task
             ldr     r3, [r0]
             mov     r2, #6
