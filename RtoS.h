@@ -85,6 +85,7 @@ volatile uint32_t Random_register[3];
 
 
 /// Отдать память другой нитке ( & link_memory, "task_func_name") (функция подтверждения)
+/// Release memory for another thread
 static void sTask_memory_donate (uint32_t *link_memory, char* const task_func_name)
 {
 asm volatile  ( "svc    0xD                     \n\t"
@@ -93,7 +94,8 @@ asm volatile  ( "svc    0xD                     \n\t"
 }
 
 /// Получить память от другой нитки ("task_func_name") (функция подтверждения)
-static uint32_t sTask_memory_have (char* const task_func_name)
+///Get memory from another threa
+static uint32_t sTask_memory_get (char* const task_func_name)
 {
 register volatile uint32_t malloc_adres asm  ("r0") = task_func_name;
 asm volatile  ( "svc    0xE                     \n\t"
@@ -105,7 +107,7 @@ return malloc_adres;
 
 
 /// Запрос ресурса, бесконечный цикл - пока не освободится
-//__attribute__( ( always_inline ) )
+/// Resource request, endless loop while resource not released
 static inline sTask_resource_ask (uint32_t *name_resource)
 {
     while ( *name_resource ) {TIM6 -> CNT = TIM6 -> ARR;};
@@ -113,6 +115,7 @@ static inline sTask_resource_ask (uint32_t *name_resource)
 }
 
 /// Освободить ресурс
+/// Release resourse
 static void sTask_resource_free (uint32_t *name_resource);
 void sTask_resource_free (uint32_t *name_resource)
 {
