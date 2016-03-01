@@ -31,14 +31,14 @@ struct
   /// Старт - Размер стека майна, Task MAIN stack size
   /// Работа - Удачный стек, booked stack address
   __IO uint32_t sSYSHCLK;           ///#28- системная частота, гц - задается при старте
-  __IO uint32_t tick_real;           ///#32-
+  __IO uint32_t tick_real;          ///#32-
   /// Старт - дительность цикла задачи (us), Start - duration of the task cycle (us)
   /// Работа - таймер активности задачи 100%, Task activity timer 100%
   __IO uint32_t malloc_start;       ///#36- Первый адрес malloc, First malloc address
   __IO uint32_t malloc_stop;        ///#40- Последний адрес malloc, Last malloc address
   __IO uint32_t task_stop;          ///#44- Последний адрес стека, Stack last address
   __IO uint32_t alarm_mc;           ///#48- системное время, System time counter
-  __IO uint32_t sustem_us;           ///#52- временно
+  __IO uint32_t system_us;          ///#52- временно
 
 }sSystem_task ;
 
@@ -51,16 +51,16 @@ volatile struct  task
   __IO uint32_t last_stack;         /// 0x08, #08, 32b,- Cтек задачи, Stack pointer
   __IO uint16_t life_time;          /// 0x0C, #12, 16b,- Таймер активности задачи, Task activity timer
   __IO uint8_t percent;             /// 0x0E, #14, 08b,- Процент активности задачи, Task percentage usage
-  __IO uint8_t flag;                /// 0x0F, #15, 08b,- Флаг запроса на обработку, Preocessing request flag
+  __IO uint8_t flag;                /// 0x0F, #15, 08b,- Флаг запроса на обработку, Processing request flag
   __IO uint32_t task_wake;          /// 0x10, #16, 32b,
   /// struct task* delay - Время сна (мс), Sleeping time
   /// struct task* wait - Адрес глобального флага пинка, Address global flag kick
-  /// struct task* hold - Переменная обработки mallok, Malloc processing variable
-  __IO uint16_t task_nomer;         /// 0x14, #20, 16b,- Номер таска, Task iniqe ID
-  __IO uint16_t task_xxxxx;         /// 0x16, #22, 16b,- Пусто, Resrved
+  /// struct task* hold - Переменная обработки malloc, Malloc processing variable
+  __IO uint16_t task_nomer;         /// 0x14, #20, 16b,- Номер таска, Task unique ID
+  __IO uint16_t task_xxxxx;         /// 0x16, #22, 16b,- Пусто, Reserved
   __IO uint16_t stack_zize;         /// 0x18, #24, 16b,- Размер стека, Task stack size
   __IO uint16_t stack_max_zize;     /// 0x1A, #26, 16b,- Рабочий стек, Task maximum used stack
-  __IO char* task_names;            /// 0x1C, #28, 32b,- Имя задачи, Task mame
+  __IO char* task_names;            /// 0x1C, #28, 32b,- Имя задачи, Task name
 };
 
 volatile uint32_t Random_register[3];
