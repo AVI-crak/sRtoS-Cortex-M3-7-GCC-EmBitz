@@ -822,7 +822,7 @@ Handler_zize:
             ldr     r2, [r0, #20]
             cmp     r2, r3
             bhs     Handler_zi
-            bkpt                        // Маоло стека под прерывания
+            bkpt                        // Мало стека под прерывания
 Handler_zi:
             bx      lr
  .size Handler_zize, . - Handler_zize
@@ -833,12 +833,13 @@ Handler_zi:
  .globl    SysTick_Handler
  .type    SysTick_Handler, %function
 SysTick_Handler:
-            ldr     r0, =__DWT
-            ldr     r1, =sSystem_task
-            mov     r2, #0
-            ldr     r3, [r0, #4]
-            str     r2, [r0, #4]
-            str     r3, [r1, #52]
+            ldr     r0, =__DWT          // временно
+            ldr     r1, =sSystem_task   // временно
+            mov     r2, #0              // временно
+            ldr     r3, [r0, #4]        // временно
+            str     r2, [r0, #4]        // временно
+            str     r3, [r1, #52]       // временно
+
             svc     0x6                 //__sDelay_work
             bx      lr
 
@@ -978,11 +979,11 @@ __maloc_in_02:
 
  .align 4
 __free:
-            ldr     r7, [r11, #8]           // читем стек задачи
-            ldr     r2, [r7, #__STACK_Mx]   // читем free (malloc_adres) задачи
+            ldr     r7, [r11, #8]           // читаем стек задачи
+            ldr     r2, [r7, #__STACK_Mx]   // читаем free (malloc_adres) задачи
 
-            ldrh    r3, [r11, #20]          // читем номер хозяина
-            ldr     r4, [r2, #-4]           // читем настоящего хозяина\размер
+            ldrh    r3, [r11, #20]          // читаем номер хозяина
+            ldr     r4, [r2, #-4]           // читаем настоящего хозяина\размер
             subs    r1, r3, r4, lsr #23     // 0
             itt     ne
             svcne   0xB                     // __nil_ww
@@ -992,13 +993,11 @@ __free:
             mov     r2, #0
             ldr     r1, [r12, #36]          // malloc_start - первый адрес malloc
             b       __free_all_1
-//__free_error:
-        //    svc     0xB                     // __nil_ww
-        //    b       sTask_nil_re            // новый круг
+
 
  .align 4
 __free_all:
-            ldrh    r2, [r11, #20]          // читем номер хозяина
+            ldrh    r2, [r11, #20]          // читаем номер хозяина
             ldr     r1, [r12, #36]          // malloc_start - первый адрес malloc
 __free_all_1: // r1 старт
             mov     r5, #512
@@ -1074,30 +1073,7 @@ __memory_don1:
             strb    r0, [r3, #15]           // стёрли флаг принимающей задачи
             svc     0xB                     // __nil_ww
             b       sTask_nil_re
-       /*
-        // Cortex-M3
-        // r0  вход-выход
-        push   {r1, r2, r3, r4, r5, lr}
-        ldr     r0, =входное
-        ldr     r1, =адрес таблиц (1+2+3+4)
-        mov     r2, #0xFF                   // маска
-        and     r3, r0, r2
-        ldrb    r4, [r1, r3]                // первый байт
-        and     r3, r2, r0, lsr #8
-        add     r0, r0, #0x100
-        ldrb    r5, [r0, r3]                // второй байт
-        add     r0, r0, #0x100
-        and     r3, r2, r0, lsr #16
-        add     r4, r4, r5, lsl #8
-        ldrb    r5, [r0, r3]                // третий байт
-        add     r0, r0, #0x100
-        lsr     r0, r0, #24
-        add     r4, r4, r5, lsl #16
-        ldrb    r5, [r0, r3]                // последний байт
-        add     r0, r4, r5, lsl #24
-        pop     {r1, r2, r3, r4, r5, lr}
 
-*/
 
 
  .size sTask_nil, . - sTask_nil
