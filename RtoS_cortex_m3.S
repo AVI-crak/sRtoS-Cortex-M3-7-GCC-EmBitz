@@ -1,7 +1,7 @@
 // Cortex-M3 GCC EmBitz 0.40
 /* имя файла */
 /* RtoS_cortex_m3.S */
-/* процент готовности 40% */
+/* процент готовности 41% */
 /* размер rom 2446bб ram 128b*n + 64b */
 
 /* мыло для заинтересованных */
@@ -17,13 +17,9 @@
  .arch armv7-m
 
  .equ   __Test_psp,0               // проверка на ошибки
- .equ   __Vector_table,     0xE000ED08
+ .equ   __Vector_table,     0xE000ED08  // (0xE000ED04 SCB->ICSR)
  .equ   __DWT,              0xE0001000
  .equ   __SysTick_CTRL,     0xE000E010  // #0xE010 SysTick->CTRL, #0xE014 SysTick->LOAD, #0xE018 SysTick->VAL
- .equ   __TIM6_CR1,         0x40001000  // +12 DIER, +16 SR, +20 EGR, +36 CNT, +40 PSC, >+44 ARR
- .equ   __RCC_APB1ENR,      0x4002101C
- .equ   __tick_real_ms,      0x000F4240
- .equ   __TIM_Delay_IRQn,   54          //TIM6_IRQn
  .equ   __STACK_Mx,         32          //смещение до первого сохранёного элемента
 
 
@@ -48,7 +44,7 @@ SVC_Table:
     .hword   ((___sRandom - SVC_Table)/2)        //3
     .hword   ((__sTask_new - SVC_Table)/2)       //4
     .hword   ((__Delete_Task - SVC_Table)/2)     //5
-    .hword   ((__sDelay_work - SVC_Table)/2)     //6
+    .hword   ((__resource_ask - SVC_Table)/2)    //6
     .hword   ((__sDelay_new - SVC_Table)/2)      //7
     .hword   ((__sTask_wait - SVC_Table)/2)      //8
     .hword   ((__sTask_wake - SVC_Table)/2)      //9
@@ -58,6 +54,8 @@ SVC_Table:
     .hword   ((__memory_donate - SVC_Table)/2)   //D
     .hword   ((__memory_get - SVC_Table)/2)      //E
     .hword   ((__nil_nn - SVC_Table)/2)          //F
+    .hword   ((__switch - SVC_Table)/2)          //10
+
 
 
 
@@ -77,13 +75,6 @@ __EnableIRQS: // r1 IRQn, r2 Priority
             cmp     r1, #0xFF       //проверка SysTick_IRQn
             it      eq
             moveq   r2, #15         //SysTick_IRQn должен иметь минимальный приоритет
-            cmp     r1, #0xFB       //проверка SVCall_IRQn
-            beq     EnableIrq_error //нельзя менять приоритет
-            cmp     r1, #0xFE       //проверка PendSV_IRQn
-            beq     EnableIrq_error //нельзя менять приоритет
-            cmp     r1, __TIM_Delay_IRQn
-            it      eq
-            moveq   r2, #15         //минимальный приоритет
             lsl     r2, r2, #4      //сдвиг на границу
             mov     r3, r1
             and     r3, #0x0F
@@ -101,15 +92,12 @@ __EnableIRQS: // r1 IRQn, r2 Priority
             lsls	r1, r1, #2
             subw    r0, r4, #0x60C //NVIC_ISERx 0xE000E100
             str     r2, [r0, r1]
-EnableIrq_error:
             pop     {r4}
             bx      lr
 
  .align 4
 __DisableIRQS:
 //NVIC->ICER[((uint32_t)(IRQn) >> 5)] = (1 << ((uint32_t)(IRQn) & 0x1F)); /* disable interrupt */
-            cmp     r1, __TIM_Delay_IRQn
-            beq     EnableIrq_error //нельзя удалять
             mov     r3, #0x1F
             and     r0, r1, r3
             mov     r3, #0x1
@@ -252,7 +240,7 @@ SVC_step4_7:
             beq     SVC_step4_7
             mov     r4, r7
 SVC_step4_8:
-            ldrh    r5, [r4, #20]           // читаем номер
+            ldrh    r5, [r4, #12]           // читаем номер таска, Task unique ID
             str     r1, [r2, r5, lsl #2]    // обнуляем точку
             ldr     r4, [r4]
             cmp     r4, r7
@@ -280,29 +268,21 @@ SVC_step4_11:
             bne     SVC_step4_11
             // заполняем стек
             sub     r0, r0, #32             //новая задача
-            strh    r7, [r0, #20]
+            strh    r7, [r0, #12]           // Номер таска, Task unique ID
             ldr     r2, [r8]                //активная задача
             ldr     r3, [r2, #4]            //адрес преведущей задачи ( указывает на голову)
             str     r0, [r3]                //голова указывает на новую
             str     r0, [r2, #4]            //активная указывает на новую старую задачу
             str     r2, [r0]                //новая указывает на активную
             str     r3, [r0, #4]            //новая указывает на старую голову
-
             mrs     r4, psp                 // r4 будет адресом параметров
             ldr     r1, [r4]                // [psp +0]) void (*taskS_func())
             str     r1, [r0, #-8]           //сохранили pc
             ldr     r1, =sTask_kill
             str     r1, [r0, #-12]          //сохранили ложный lr
             ldr     r1, [r8, #32]           //tick_real - 100% тиков на задачу
-            ldr     r5, [r4, #+8]           //[psp +8]) task_time_rate %
-
-            cmp     r5, #100
-            it      hi
-            movhi   r5, #100
-            cmp     r5, #1
-            it      lo
-            movlo   r5, #1
-            strh    r5, [r0, #14]           //сохранили выделенный процент времени
+            ldr     r5, [r4, #8]            //[psp +8]) task_time_rate %
+            strb    r5, [r0, #14]           //сохранили выделенный процент времени
             mul     r1, r1, r5
             mov     r3, #0
             movt    r3, #0x100
@@ -314,7 +294,7 @@ SVC_step4_11:
             strh    r6, [r0, #24]           //размер стека (задаётся при запуске)
             mov     r3, #64
             strh    r3, [r0, #26]           //мах заюзанный размер стека
-            strh    r1, [r0, #12]           //таймер активности в потоке
+            str     r1, [r0, #20]           //Таймер активности задачи, Task activity timer
             ldr     r1, [r4, #12]           //[psp +12]) char* const task_func_name
             str     r1, [r0, #28]           //адрес имени задачи (char* const text)
             add     r2, r2, #32
@@ -332,66 +312,43 @@ sTask_new_error:
  .align 4
 __Delete_Task: // 5
             ldr     r2,= sSystem_task       // адрес банка задачь
-            ldr     r3, [r2]                // активная
-            ldr     r1, [r3, #4]            // адрес хвоста активных задач
-            ldr     r0, [r3]                // новая голова
+            ldr     r0, [r2, #60]
+            sub     r0, r0, #1
+            str     r0, [r2, #60]
+            ldr     r3, [r2, #12]           // активная sTask_nil
+            ldr     r0, [r3]                // новая голова sTask_nil
+            subs    r1, r3, r0
+            itt     eq                      // одна задача
+            streq   r1, [r2, #12]
+            beq     __switch
+
+            ldr     r1, [r3, #4]            // адрес хвоста активных задач sTask_nil
+            str     r0, [r2, #12]           // теперь новая голова sTask_nil
             str     r0, [r1]                // хвост на голову
             str     r1, [r0, #4]            // голова на хвост
-            str     r0, [r2]                // теперь активная
-          //  dsb
-            b       PendSV_step
+            dsb
+            bx      lr
 
 
 
  .align 4
-__sDelay_work:                              // обслуживание задержки
-            ldr     r0, = sSystem_task      // адрес переменной с адресом активной задачи
-            ldr     r1, [r0, #4]            // первая спящая задача
-            ldr     r2, [r0, #48]
-            add     r2, r2, #1
-            str     r2, [r0, #48]           //alarm_mc - время для задержки выполнения условия
-            cbz     r1, __sDelay_exit
-            push    {R4, r5, r6}
-            ldr     r5, [r1, #4]            // хвост не обработанной спящей
-            mov     r6, #1
-__sDelay_next:
-            ldr     r2, [r1, #16]           // читаем время
-            sub     r2, r2, #1
-            str     r2, [r1, #16]           // сохраняем
-            ldr     r4, [r1]                // голова следующей не обработанной спящей
-            cmp     r5, r1
-            it      eq
-            moveq   r6, #0
-            cbnz    r2, __sDelay_cut        // больше нуля
-            cmp     r4, r1
-            itt     eq                      // единственная задача в сне
-            streq   r2, [r0, #4]            // больше нет спящих
-            beq     __sDelay_cut3
-            ldr     r2, [r1, #4]            // хвост не обработанной спящей
-            str     r4, [r0, #4]            // теперь отчёт с неё
-            str     r2, [r4, #4]            // голова на хвост
-            str     r4, [r2]                // голова хвоста на голову
-__sDelay_cut3:
-            ldr     r2, [r0]                // активная задача в потоке
-            ldr     r3, [r2, #4]            // хвост активной задачи
-            str     r1, [r3]                // хвост на новую
-            str     r3, [r1, #4]            // новая на хвост хвоста
-            str     r2, [r1]                // новая на голову активной
-            str     r1, [r2, #4]            // хвост активной на новую
-__sDelay_cut:
-            mov     r1, r4
-            cmp     r6, #0
-            bne     __sDelay_next
-            pop     {R4, r5, r6}
-            dsb
-__sDelay_exit:
+__resource_ask:      //6 ;r2 name_resource
+            ldr     r0, [r2]                // владелец ресурса
+            cmp     r0, #0
+            bne     __switch
+            ldr     r3,= sSystem_task       // адрес банка задачь
+            ldr     r3, [r3]                // активная
+            ldr     r3, [r3, #28]           // Имя задачи, Task name
+            str     r3, [r2]
             bx      lr
 
  .align 4
 __sDelay_new:       // r2 время сна
             ldr     r0,  =sSystem_task
             ldr     r1, [r0]                // активная задача
-            str     r2, [r1, #16]           // сохранили время сна
+            ldr     r3, [r0, #48]           // Системное время, System time counter
+            add     r2, r2, r3
+            str     r2, [r1, #16]           // сохранили точку сна
             mov     r3, #4                  // задачи сна
             b       __nil_1
 
@@ -408,6 +365,7 @@ __sTask_wait: // R2(глобал флаг - адрес)
 
  .align 4
 __sTask_wake: // R2(глобал флаг - адрес) разбудить
+            cbz     r2, __sTask_wake_exit   // а там пусто...
             ldr     r3, [r2]                // читаем глобальный флаг
             cbz     r3, __sTask_wake_exit   // уже запускали
             ldr     r0, = sSystem_task      // адрес переменной с адресом активной задачи
@@ -460,13 +418,13 @@ __nil_1:
             mrs     r2, psp
             stmdb   r2!, {r4-r11}           // сохраняем регистры
             str     r2, [r1, #8]            // сохранили адрес стека активной задачи
-            push    {r4}
+      //      push    {r4}
             ldr     r4, [r1, #4]            // адрес хвоста
             ldr     r2, [r1]                // адрес головы
             str     r2, [r4]                // хвост на новую голову
             str     r4, [r2, #4]            // новая голова на хвост
             str     r2, [r0]                // новая голова активна
-            pop     {r4}
+        //    pop     {r4}
             ldr     r2, [r0, r3]            // адрес слабых
             cmp     r2, #0
             itttt   eq
@@ -474,15 +432,15 @@ __nil_1:
             streq   r1, [r1]
             streq   r1, [r1, #4]
             beq     __nil_2
-            ldr     r3, [r2, #4]            // хвост спящей
+            ldr     r3, [r2, #4]            // хвост слабых
             str     r1, [r3]                // хвост на новую голову
             str     r3, [r1, #4]            // новая на хвост
-            str     r1, [r2, #4]            // хвост первой спящей на новую
-            str     r2, [r1]                // голова новой на спящую
+            str     r1, [r2, #4]            // хвост первой слабых на новую
+            str     r2, [r1]                // голова новой на слабых
 __nil_2:
             ldr     r0, [r0]                // активная задача
           //  dsb
-            b       PendSV_step
+            b       __switch_step
 
 
  .align 4
@@ -525,16 +483,11 @@ __sTask_ask: // запрос ресурса  name_resource >> ("r4") >> resource_flag__
             cmpne   r4, #0
             itt     ne
             movne   r4, #0
-            bne     __ask_error
+            bne     __switch                // переглючатель
             mov     r4, r2
             str     r2, [r1]                // новый хозяин
             bx      lr
-__ask_error:
-            ldr     r2, =__TIM6_CR1
-            ldr     r0, [r2, #44]
-            str     r0, [r2, #36]
-            dsb
-            bx      lr
+
 
  .align 4
 __memory_donate: // SVC 0xD
@@ -558,6 +511,108 @@ __nil_nn: // SVC 0xF
             bx      lr
 
 
+__switch:
+ .ifdef  __Test_psp
+            ldr     r1, = sSystem_task  // адрес переменной с адресом активной задачи
+            ldr     r0, [r1]            // читаем адрес исполняемого банка
+            ldrh    r3, [r0, #26]       // мах размер стека (мах заюзанный размер стека)
+            mrs     r2, psp
+            sub     r2, r0, r2
+            add     r2, r2, #64         // текущий актуальный размер стека
+            cmp     r2, r3
+            ittt    hi                  // если больше запланированного
+            strhhi  r2, [r0, #26]       // новый мах размер стека
+            ldrhhi  r3, [r0, #24]       // размер стека (задаётся при запуске)
+            cmphi   r2, r3
+            bls     __switch_norm
+            bkpt        // пошаговый возврат в жадную задачу
+            bx      lr // rx0 адрес в стеке, rx2- требуемый размер стека
+
+__switch_norm:
+ .endif
+
+            ldr     r1, = sSystem_task      // адрес переменной с адресом активной задачи
+            ldr     r3, [r1]                // читаем адрес исполняемого банка
+            ldr     r0, [r3]                // читаем адрес следующей нити
+            mrs     r2, psp
+            stmdb   r2!, {r4-r11}           // сохраняем регистры
+            str     r2, [r3, #8]            // сохранили адрес стека текущей задачи
+            str     r0, [r1]                // в переменной адрес новой задачи
+__switch_step: // rx0 - новая задача. учёт времени
+            ldr     r2, =__SysTick_CTRL
+            ldr     r1, =sSystem_task
+            ldr     r3, [r2, #4]            // SysTick->LOAD было
+            ldr     r4, [r2, #8]            // SysTick->VAL стало
+            ldrh    r5, [r2, #2]            // SysTick->CTRL.COUNTFLAG
+            cmp     r5, #1
+            ite     eq                      // пеерполнение
+            rsbeq   r4, r4, r3, lsl #1
+            subne   r4, r3, r4
+            ldr     r3, [r1, #52]           // дробный остаток
+            add     r3, r3, r4
+            ldr     r4, [r1, #56]           // норма остатка (1mc)
+            ldr     r5, [r1, #48]           //системное время
+            add     r5, r5, #1
+            subs    r4, r3, r4 // <
+            iteet   lo
+            strlo   r3, [r1, #52]
+            strhs   r4, [r1, #52]
+            strhs   r5, [r1, #48]
+            blo     __switch_sDelay_exit
+
+
+          //  isb
+__switch_sDelay:                              // обслуживание задержки
+       //     ldr     r1, = sSystem_task      // адрес переменной с адресом активной задачи
+       //   r5 - текущее время
+            ldr     r2, [r1, #4]            // первая спящая задача
+            cbz     r2, __switch_sDelay_exit
+            ldr     r6, [r2, #4]            // хвост не обработанной спящей
+            mov     r7, #1
+__switch_sDelay_next:
+            ldr     r3, [r2, #16]           // читаем время
+            sub     r3, r3, r5
+            ldr     r8, [r2]                // голова следующей не обработанной спящей
+            cmp     r6, r2
+            it      eq
+            moveq   r7, #0
+            cbnz    r3, __switch_sDelay_cut // больше нуля
+            cmp     r8, r2
+            itt     eq                      // единственная задача в сне
+            streq   r3, [r1, #4]            // больше нет спящих
+            beq     __switch_sDelay_cut3
+            ldr     r3, [r2, #4]            // хвост не обработанной спящей
+            str     r8, [r1, #4]            // теперь отчёт с неё
+            str     r3, [r8, #4]            // голова на хвост
+            str     r8, [r3]                // голова хвоста на голову
+__switch_sDelay_cut3:
+            ldr     r3, [r1]                // активная задача в потоке
+            ldr     r4, [r3, #4]            // хвост активной задачи
+            str     r2, [r4]                // хвост на новую
+            str     r4, [r2, #4]            // новая на хвост хвоста
+            str     r3, [r2]                // новая на голову активной
+            str     r2, [r3, #4]            // хвост активной на новую
+__switch_sDelay_cut:
+            mov     r2, r8
+            cmp     r7, #0
+            bne     __switch_sDelay_next
+            dsb
+__switch_sDelay_exit:
+
+
+            ldr     r2, [r0, #8]            // читаем адрес стека
+            ldr     r1, =__SysTick_CTRL
+            ldr     r3, [r0, #20]           // читаем новое время Task activity timer
+            str     r3, [r1, #4]            // сохранили время #0xE014 SysTick->LOAD
+            mov     r3, #0
+            str     r3, [r1, #8]            // перезаруск #0xE018 SysTick->VAL
+            strh    r3, [r1, #2]
+            ldmia   r2!, {r4-r11}           // читаем сохранённое
+            msr	    psp, r2                 // переписываем стек
+            isb
+            bx      lr
+
+
 
 
  .size SVC_Handler, . - SVC_Handler
@@ -571,38 +626,8 @@ Start_task: // перемещение стеков
             cpsid   i
             push    {r0, r1, r2, r3, R4, R5, lr}
             ldr     r0,  =sSystem_task
-            ldr     r1, [r0, #28]   // sSYSHCLK // системная частота
-            ldr     r3, [r0, #32]   // us на задачу при старте
-            ldr     r2, =__tick_real_ms
-            cmp     r3, r2
-            it      hi              // > проверка на максимум
-            movhi   r3, r2
-            cmp     r3, #10
-            it      lo              // < проверка на минимум
-            movlo   r3, #10
-            udiv    r2, r2, r3
-            movw    r4, #32767
-            udiv    r2, r1, r2
-            ldr     r5, =__RCC_APB1ENR
-            udiv    r3, r2, r4      // число для TIM6_PSC
-            ldr     r1, [r5]
-            orr     r1, #0x10
-            str     r1, [r5]        // включили TIM6
-            udiv    r4, r2, r3      // число для TIM6_ARR
-            ldr     r5, =__TIM6_CR1
-            str     r3, [r5, #40]   // TIM6_PSC
-            str     r4, [r0, #32]   // мах количество тиков на задачу
-            str     r4, [r5, #44]   // TIM6_ARR
-            mov     r1, #1
-            str     r1, [r5, #12]   //TIM6_DIER (UIE)
-            mov     r1, #5
-            str     r1, [r5]        //TIM6_CR1 (Bit 2 URS,Bit 0 CEN) старт
-
-            ldr     r1, [r0, #28]   // sSYSHCLK // системная частота
-            mov     r2, #1000
-            udiv    r3, r1, r2      // 1mc sDelay_ms
             ldr     r1, =__SysTick_CTRL
-            bfc     r3, #24, #8
+            ldr     r3, [r0, #32]   // tick_real
             str     r3, [r1, #4]    // SysTick->LOAD
             mov     r2, #7
             str     r2, [r1]        // запуск+прерывания+частота=1
@@ -618,9 +643,6 @@ Start_task: // перемещение стеков
             bfc     r2, #0, #5
             str     r2, [r0, #24]   // обравняли на поле и сохранились
             ldr     r2, [r0, #20]   // размер стека прерываний
-            add     r2, r2, #31
-            bfc     r2, #0, #5
-            str     r2, [r0, #20]   // обравняли на поле и сохранились
             add     r2, r2, #160    // сдвиг на голову майна  (таблица майна8*4)+(задача_нуль(8*4*4)+(таблица(8*4)))+прерывания
             mrs	    r3, MSP
             sub     r3, r1, r3      //размер стека на текущий момент
@@ -636,24 +658,21 @@ _Start_task02:
             strne   r3, [r0], #4
             bne     _Start_task02   // r0 + 4 адрес таблицы
             ldr     r2,  =sSystem_task
-            str     r0, [r2]        //task_presently - Адрес активной задачи
-            ldr     r1, [r2, #32]   //tick_real - 100% тиков на задачу
-            movt    r1, #100        //100% выделенный процент активности потоке
-            str     r1, [r0, #12]   //таймер активности в потоке//выделенный процент
+            str     r0, [r2]        // task_presently - Адрес активной задачи
+            ldr     r1, [r2, #32]   // tick_real - 100% тиков на задачу
+            str     r1, [r0, #20]   // Таймер активности задачи
+            mov     r1, #100        // 100% выделенный процент активности потоке
+            strb    r1, [r0, #14]   // выделенный процент
             ldr     r1, [r2, #24]
- //           bfc     r1, #16, #16
             strh    r1, [r0, #24]   // размер стека не может быть выше 64к, сохранили
             mov     r1, #0
-            str     r1, [r2, #4]    //обнуление спящих задачь
-            str     r1, [r2, #8]    //обнуление задачь ожидающих пинка
-            str     r1, [r2, #12]   //обнуление задач на обработку памяти
             mrs	    r2, PSP
             sub     r2, r0, r2
             strh    r2, [r0, #26]   //мах размер стека (мах заюзанный размер стека)
             ldr     r1, = __Main_Name
             str     r1, [r0, #28]
             mov     r1, #2
-            strh    r1, [r0, #20]   // task_nomer
+            strh    r1, [r0, #12]   // Номер таска, Task unique ID
             add     r0, r0, #32
             mov     r3, r0
             mrs	    r2, MSP
@@ -671,19 +690,20 @@ _Start_task03:
             add     r3, r3, #160    // r3 голова таблицы sTask_nil
             ldr     r5,  =sSystem_task
             ldr     r2, [r5, #32]   //tick_real - 100% тиков на задачу
+            str     r2, [r3, #20]   // Таймер активности задачи
             ldr     r0, [r5]        // активная задача
             str     r3, [r0]        //адрес новой задачи (указывает на голову)
             str     r0, [r3]        //адрес новой задачи (указывает на голову)
             str     r3, [r0, #4]    //адрес преведущей задачи ( указывает на голову)
             str     r0, [r3, #4]    //адрес преведущей задачи ( указывает на голову)
-            movt    r2, #100
-            str     r2, [r3, #12]   //таймер активности в потоке//выделенный процент
+            mov     r2, #100
+            strb    r2, [r3, #14]   //Процент активности задачи
             sub     r1, r3, #64
             str     r1, [r3, #8]    //стек задачи (активный хвост)
             ldr     r1, =__sTask_nil_Nane
             str     r1, [r3, #28]   //адрес имени задачи (char* text) // номер задачи
             mov     r1, #1
-            strh    r1, [r3, #20]   //task_nomer
+            strh    r1, [r3, #12]   //Номер таска
             mov     r1, #128
             strh    r1, [r3, #24]   //размер стека сохранили
             mov     r1, #64
@@ -703,15 +723,11 @@ _Start_task03:
             bfc     r1, #0, #4
             str     r1, [r5, #36]   //malloc_start - первый адрес malloc
             str     r1, [r5, #40]   //malloc_stop - последний адрес malloc
-            mov     r1, #0
-            str     r1, [r5, #48]   //alarm_mc - время для задержки выполнения условия
             mov     r1, #3
             cpsie    i
             msr	   CONTROL, r1
             isb
-            mov     r1, #54         //TIM6 global Interrupt
             mov     r2, #0x0F
-            svc     0x0             //sNVIC_EnableIRQ(TIM6_IRQn, 15)
             mov     r1, #0xFF
             svc     0x0             //sNVIC_EnableIRQ(SysTick_IRQn, 15);
             pop     {r0, r1, r2, r3, R4, R5, lr}
@@ -744,9 +760,9 @@ sTask_kill:
             mov     r1, #3                 // флаг обработки для sTask_nil, 3 __free_all
             strb    r1, [r2, #15]          // флаг запроса на обработку
             svc     0xA                    // нить отложенных заданий
-            svc     0x5
-            nop
-            nop
+            mov     r1, #4                 // флаг обработки для sTask_nil, 4 __sTask_kill
+            strb    r1, [r2, #15]          // флаг запроса на обработку
+            svc     0xA
 sTask_kill_err:
             push    {r0, r1, r2, r3 }
             bx      lr
@@ -756,52 +772,7 @@ sTask_kill_err:
 
 
 
- .align 4
- .globl    PendSV_Handler
- .type    PendSV_Handler, %function
-PendSV_Handler:
 
- .ifdef  __Test_psp
-            ldr     r1, = sSystem_task  // адрес переменной с адресом активной задачи
-            ldr     r0, [r1]            // читаем адрес исполняемого банка
-            ldrh    r3, [r0, #26]       // мах размер стека (мах заюзанный размер стека)
-            mrs     r2, psp
-            sub     r2, r0, r2
-            add     r2, r2, #64         // текущий актуальный размер стека
-            cmp     r2, r3
-            ittt    hi                  // если больше запланированного
-            strhhi  r2, [r0, #26]       // новый мах размер стека
-            ldrhhi  r3, [r0, #24]       // размер стека (задаётся при запуске)
-            cmphi   r2, r3
-            bls     PendSV_step_norm
-            bkpt        // пошаговый возврат в жадную задачу
-            bx      lr // R0 адрес в стеке, R2- требуемый размер стека
-
-PendSV_step_norm:
- .endif
-
-            ldr     r1, = sSystem_task      // адрес переменной с адресом активной задачи
-            ldr     r3, [r1]                // читаем адрес исполняемого банка
-            ldr     r0, [r3]                // читаем адрес следующей нити
-            mrs     r2, psp
-            stmdb   r2!, {r4-r11}           // сохраняем регистры
-            str     r2, [r3, #8]            // сохранили адрес стека текущей задачи
-            str     r0, [r1]                // в переменной адрес новой задачи
-PendSV_step: // r0 - новая задача
-            ldr     r2, [r0, #8]            // читаем адрес стека
-            ldr     r3, =__TIM6_CR1
-            ldrh    r1, [r0, #12]           // читаем новое время
-            str     r1, [r3, #44]           // сохранили время
-            mov     r1, #1
-            str     r1, [r3, #20]           // перезаруск
-            mov     r1, #0
-            str     r1, [r3, #16]           // сброс прерывания TIM6
-            ldmia   r2!, {r4-r11}           // читаем сохранённое
-            msr	    psp, r2                 // переписываем стек
-            isb
-            bx      lr
-
- .size PendSV_Handler, . - PendSV_Handler
 
 
  .ifdef  __Test_psp
@@ -818,8 +789,8 @@ Handler_zize:
             sub     r3, r3, r2
             cmp     r3, r1
             it      hs
-            strhs   r3, [r0, #16]
-            ldr     r2, [r0, #20]
+            strhs   r3, [r0, #16]       // Рабочий стек прерываний, Task maximum NVIC used stack
+            ldr     r2, [r0, #20]       // Размер стека прерываний, Task NVIC stack size
             cmp     r2, r3
             bhs     Handler_zi
             bkpt                        // Мало стека под прерывания
@@ -833,43 +804,21 @@ Handler_zi:
  .globl    SysTick_Handler
  .type    SysTick_Handler, %function
 SysTick_Handler:
-            ldr     r0, =__DWT          // временно
-            ldr     r1, =sSystem_task   // временно
-            mov     r2, #0              // временно
-            ldr     r3, [r0, #4]        // временно
-            str     r2, [r0, #4]        // временно
-            str     r3, [r1, #52]       // временно
-
-            svc     0x6                 //__sDelay_work
+            nop
+            svc     0x10                 //__switch 0x10 __sDelay_work
             bx      lr
 
  .size SysTick_Handler, . - SysTick_Handler
 
 
 
-  .align 4
- .globl    TIM6_IRQHandler
- .type    TIM6_IRQHandler, %function
-TIM6_IRQHandler:
-            ldr     r0, =__TIM6_CR1
-            mov     r1, #0
-            str     r1, [r0, #16]           //сброс прерывания TIM6
-            ldr     r0, =__Vector_table
-            movt    r1, #0x1000             // сигнатура 0x10000000 PendSV
-            str     r1, [r0, #-4]           // адрес 0xE000ED04 PendSV_Handler
-            nop
-            nop
-            bx      lr
 
-
- .size TIM6_IRQHandler, . - TIM6_IRQHandler
 
  .align 4
  .globl    sTask_nil
  .type    sTask_nil, %function
 sTask_nil:
             ldr     r12, = sSystem_task     // адрес переменной с адресом активной задачи
-            ldr     r10, = __TIM6_CR1
             //(r11)  // адрес задач на обработку памяти
 
 
@@ -880,11 +829,9 @@ sTask_nil_re:
             ldr     r0, [r12]
             ldr     r1, [r0]
             cmp     r0, r1
-            itt     ne                       // то ждём физики
-            ldrne   r0, [r10, #44]
-            strne   r0, [r10, #36]
-            nop
-            nop
+            it      ne                       // то ждём физики
+            svcne   0x10                     // __switch
+            wfi
             b       sTask_nil_re
 sTask_nil_nw:
             ldrb    r0, [r11, #15]           // читаем флаг
@@ -947,7 +894,7 @@ __maloc_in_for:    // r3 - адрес старта
             addlo   r3, r3, r0, lsl #2
             blo     __maloc_in_for
 __maloc_in_03:
-            ldrh    r2, [r11, #20]          // читаем task_nomer задачи
+            ldrh    r2, [r11, #12]          // читаем номер таска, Task unique ID
             orr     r1, r4, r2, lsl #23
             str     r1, [r3]                // сохраняем нового хозяина и смещение
             sub     r2, r0, r4
@@ -982,7 +929,7 @@ __free:
             ldr     r7, [r11, #8]           // читаем стек задачи
             ldr     r2, [r7, #__STACK_Mx]   // читаем free (malloc_adres) задачи
 
-            ldrh    r3, [r11, #20]          // читаем номер хозяина
+            ldrh    r3, [r11, #12]          // читаем номер таска, Task unique ID
             ldr     r4, [r2, #-4]           // читаем настоящего хозяина\размер
             subs    r1, r3, r4, lsr #23     // 0
             itt     ne
@@ -997,7 +944,7 @@ __free:
 
  .align 4
 __free_all:
-            ldrh    r2, [r11, #20]          // читаем номер хозяина
+            ldrh    r2, [r11, #12]          // читаем номер таска, Task unique ID
             ldr     r1, [r12, #36]          // malloc_start - первый адрес malloc
 __free_all_1: // r1 старт
             mov     r5, #512
@@ -1040,7 +987,7 @@ __free_all_3:
 
  .align 4
 __sTask_kill:
-            svc     0x5                     // __Delete_Task
+            svc     0x5
             b       sTask_nil_re            // новый круг
 
  .align 4
@@ -1063,7 +1010,7 @@ __memory_don1:
             bne     __memory_don1           // не совпало
             ldr     r4, [r1, __STACK_Mx]    // [r0] *link_memory
             ldr     r2, [r4, #-4]           // там был адрес ссылки
-            ldrh    r0, [r3, #20]           // читаем номер получателя
+            ldrh    r0, [r3, #12]           // читаем номер таска, Task unique ID ?
             bfc     r2, #23, #9             // размер
             orr     r2, r2, r0, lsl #23
             str     r2, [r4, #-4]           // новый хозяин
@@ -1076,10 +1023,38 @@ __memory_don1:
 
 
 
+
+
  .size sTask_nil, . - sTask_nil
 
-
-
+            /*
+            push    {r1, r2, r3, r4, r5, r6, r7, r8}
+            ldr     r8, =__DWT
+            mov     r1, #0
+            str     r1, [r8, #4]
+            ldr     r1, =__SysTick_CTRL
+            ldr     r7, =sSystem_task
+            ldr     r3, [r7, #54]           // норма остатка
+            ldr     r4, [r7, #52]           // остаток
+            ldr     r2, [r1, #4]            // SysTick->LOAD было
+            ldr     r6, [r1, #8]            // SysTick->VAL стало
+            ldrh    r5, [r1, #2]
+            cmp     r5, #1
+            ite     eq                      // пеерполнение
+            rsbeq   r6, r6, r2, lsl #1
+            subne   r6, r2, r6
+            add     r4, r4, r6
+            ldr     r6, [r7, #48]           //системное время
+            add     r6, r6, #1
+            subs    r2, r4, r3 //>=
+            itett      hs
+            strhs   r2, [r7, #52]
+            strlo   r4, [r7, #52]
+            strhs   r6, [r7, #48]
+            addhs   r6, r6, #1              // переход на делай
+            ldr     r1, [r8, #4]
+            pop    {r1, r2, r3, r4, r5, r6, r7, r8}
+            */
 
 
 

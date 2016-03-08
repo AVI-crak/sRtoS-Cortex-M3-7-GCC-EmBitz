@@ -1,7 +1,7 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /// имя файла
 /// RtoS.h
-/// процент готовности 40%
+/// процент готовности 41%
 /// размер rom 2446bб ram 128b*n + 64b
 
 /// мыло для заинтересованных
@@ -30,15 +30,15 @@ struct
   __IO uint32_t Main_size_start;    ///#24-
   /// Старт - Размер стека майна, Task MAIN stack size
   /// Работа - Удачный стек, booked stack address
-  __IO uint32_t sSYSHCLK;           ///#28- системная частота, гц - задается при старте
-  __IO uint32_t tick_real;          ///#32-
-  /// Старт - дительность цикла задачи (us), Start - duration of the task cycle (us)
-  /// Работа - таймер активности задачи 100%, Task activity timer 100%
+  __IO uint32_t sSYSHCLK;           ///#28- Системная частота, гц - задается при старте
+  __IO uint32_t tick_real;          ///#32- Работа - таймер активности задачи 100%, Task activity timer 100%
   __IO uint32_t malloc_start;       ///#36- Первый адрес malloc, First malloc address
   __IO uint32_t malloc_stop;        ///#40- Последний адрес malloc, Last malloc address
   __IO uint32_t task_stop;          ///#44- Последний адрес стека, Stack last address
-  __IO uint32_t alarm_mc;           ///#48- системное время, System time counter
-  __IO uint32_t system_us;          ///#52- временно
+  __IO uint32_t system_us;          ///#48- Системное время, System time counter
+  __IO uint32_t spall_us;           ///#52- Дробный остаток
+  __IO uint32_t norm_mc;            ///#56- Норма остатка (1mc)
+  __IO uint32_t task_amt;           ///#60- Количество тасков - временно
 
 }sSystem_task ;
 
@@ -46,21 +46,20 @@ struct
 
 volatile struct  task
 {
-  struct task* task_new;            /// 0x00, #00  32b,- Адрес новой задачи, New task pointer
-  struct task* task_lid;            /// 0x04, #04, 32b,- Адрес старой задачи, Old task pointer
-  __IO uint32_t last_stack;         /// 0x08, #08, 32b,- Cтек задачи, Stack pointer
-  __IO uint16_t life_time;          /// 0x0C, #12, 16b,- Таймер активности задачи, Task activity timer
-  __IO uint8_t percent;             /// 0x0E, #14, 08b,- Процент активности задачи, Task percentage usage
-  __IO uint8_t flag;                /// 0x0F, #15, 08b,- Флаг запроса на обработку, Processing request flag
-  __IO uint32_t task_wake;          /// 0x10, #16, 32b,
+    struct task* task_new;          /// 0x00, #00  32b,- Адрес новой задачи, New task pointer
+    struct task* task_lid;          /// 0x04, #04, 32b,- Адрес старой задачи, Old task pointer
+    __IO uint32_t last_stack;       /// 0x08, #08, 32b,- Cтек задачи, Stack pointer
+    __IO uint16_t task_nomer;       /// 0x0C, #12, 16b,- Номер таска, Task unique ID
+    __IO uint8_t percent;           /// 0x0E, #14, 08b,- Процент активности задачи, Task percentage usage
+    __IO uint8_t flag;              /// 0x0F, #15, 08b,- Флаг запроса на обработку, Processing request flag
+    __IO uint32_t task_wake;        /// 0x10, #16, 32b,
   /// struct task* delay - Время сна (мс), Sleeping time
   /// struct task* wait - Адрес глобального флага пинка, Address global flag kick
   /// struct task* hold - Переменная обработки malloc, Malloc processing variable
-  __IO uint16_t task_nomer;         /// 0x14, #20, 16b,- Номер таска, Task unique ID
-  __IO uint16_t task_xxxxx;         /// 0x16, #22, 16b,- Пусто, Reserved
-  __IO uint16_t stack_zize;         /// 0x18, #24, 16b,- Размер стека, Task stack size
-  __IO uint16_t stack_max_zize;     /// 0x1A, #26, 16b,- Рабочий стек, Task maximum used stack
-  __IO char* task_names;            /// 0x1C, #28, 32b,- Имя задачи, Task name
+    __IO uint32_t life_time;        /// 0x14, #20, 32b,- Таймер активности задачи, Task activity timer
+    __IO uint16_t stack_zize;       /// 0x18, #24, 16b,- Размер стека, Task stack size
+    __IO uint16_t stack_max_zize;   /// 0x1A, #26, 16b,- Рабочий стек, Task maximum used stack
+    __IO char* task_names;          /// 0x1C, #28, 32b,- Имя задачи, Task name
 };
 
 volatile uint32_t Random_register[3];
@@ -108,10 +107,15 @@ return malloc_adres;
 
 /// Запрос ресурса, бесконечный цикл - пока не освободится
 /// Resource request, endless loop while resource not released
-static inline sTask_resource_ask (uint32_t *name_resource)
+static inline sTask_resource_ask (volatile uint32_t *name_resource)
 {
-    while ( *name_resource ) {TIM6 -> CNT = TIM6 -> ARR;};
-        *name_resource = sSystem_task.activ -> task_names;
+    do
+    {asm volatile  ("push   {r2}                \n\t"
+                    "mov    r2, %[_resource]    \n\t"
+                    "svc    0x6                 \n\t"
+                    "pop    {r2}                \n\t"
+                :: [_resource] "r" (name_resource):);
+    }while ( !( *name_resource == sSystem_task.activ -> task_names ) );
 }
 
 /// Освободить ресурс
@@ -132,11 +136,11 @@ static uint32_t sTask_alarm_mc(uint32_t * timer_name, uint32_t timer_mc)
 
     if ( *timer_name ==0)
     {
-        if  ((sSystem_task.alarm_mc + timer_mc) < sSystem_task.alarm_mc)
-            alarm = 0; else *timer_name = sSystem_task.alarm_mc + timer_mc;
+        if  ((sSystem_task.system_us + timer_mc) < sSystem_task.system_us)
+            alarm = 0; else *timer_name = sSystem_task.system_us + timer_mc;
     }else
     {
-        if  (sSystem_task.alarm_mc > *timer_name)
+        if  (sSystem_task.system_us > *timer_name)
            {alarm = 1; *timer_name = 0;}
             else alarm =0;
     }
@@ -203,21 +207,19 @@ asm volatile   ("push   {r2}                \n\t"
 /// Старт ОS
 /// частота ядра в гц, размер стека майна,
 ///       > размер стека прерываний, стартовое время задачи в микросекундах
-static void setup_run(uint32_t __SYSHCLK,uint32_t _main_size,uint32_t NVIC_size,uint32_t task_time_us );
-void setup_run(uint32_t __SYSHCLK,
-                        uint32_t _main_size,
-                        uint32_t NVIC_size,
-                        uint32_t task_time_us )
+static void setup_run(uint32_t __SYSHCLK,uint32_t _main_size,uint32_t NVIC_size);
+void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
 {
-
-
+    sSystem_task.sSYSHCLK = __SYSHCLK;
+    sSystem_task.Main_size_start = (((_main_size+31) >> 5) << 5);
+    sSystem_task.NVIC_size = (((NVIC_size +31) >> 5) << 5);
+    sSystem_task.tick_real = (__SYSHCLK / 1000) - 1;
+    sSystem_task.norm_mc = (__SYSHCLK / 1000) - 30;
+    sSystem_task.task_amt = 2;
     CoreDebug-> DEMCR |= 0x01000000;
     DWT->CYCCNT =0;
     DWT->CTRL |=1; // enable the counter
-    sSystem_task.sSYSHCLK = __SYSHCLK;
-    sSystem_task.Main_size_start = _main_size;
-    sSystem_task.NVIC_size = NVIC_size;
-    sSystem_task.tick_real = task_time_us;
+    SCB->CCR |= SCB_CCR_USERSETMPEND;
     Start_task();
 }
 
@@ -264,27 +266,23 @@ void sTask_new (void (*taskS_func()),
                         char* const task_func_name,
                         void* task_func_massif4_data  )
 {
+
 register volatile   *taskS_func__     asm     ("r0") = taskS_func;
 register volatile   *task_size__      asm     ("r1") = task_size;
+if (task_time_rate >100) task_time_rate = 100;else;
+if (task_time_rate < 1) task_time_rate = 1;else;
 register volatile   *task_time_rate__ asm     ("r2") = task_time_rate;
 register volatile   *task_func_name__ asm     ("r3") = task_func_name;
 register volatile   *func_massif4__   asm     ("r4") = task_func_massif4_data;
 // да чтоб икалось в бесконечности всем рацинализаторам GCC
     asm volatile  ( "push    {r4, r5, r6}   \n\t"
-     "_Zd_%=:"      "svc     0x4            \n\t"  //
-                    "cbz    r5, _Zc_%=      \n\t"
-                    "movw   r5, #0x1024     \n\t"
-                    "movt   r5, #0x4000     \n\t"
-                    "ldr    r6, [r5, #8]    \n\t"   // TIM6_ARR
-                    "str    r6, [r5]        \n\t"   // TIM6_CNT
-                    "nop                    \n\t"   // уступить время
-                    "nop                    \n\t"   // недостаток места
-                    "b      _Zd_%=          \n\t"
-     "_Zc_%=:"      "pop     {r4, r5, r6}   \n\t"
+                    "svc     0x4            \n\t"  //
+                    "pop     {r4, r5, r6}   \n\t"
                   :
                   :  "r" (taskS_func__), "r" (task_size__), "r" (task_time_rate__), "r" (task_func_name__),
                      "r" (func_massif4__)
                   : "memory" );
+sSystem_task.task_amt++;
 }
 
 
@@ -292,7 +290,7 @@ register volatile   *func_massif4__   asm     ("r4") = task_func_massif4_data;
 /// Уступить время - только внутри работающей задачи
 __attribute__( ( always_inline ) ) static inline sTask_skip (void)
 {
-    TIM6 -> CNT = TIM6 -> ARR;
+asm volatile  ( "svc    0x10    ");
 }
 
 /// Убить задачу - только внутри работающей задачи
