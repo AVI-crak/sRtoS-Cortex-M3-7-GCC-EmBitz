@@ -1,7 +1,7 @@
 /// Cortex-M3 GCC EmBitz 0.40
 /// имя файла
 /// RtoS.h
-/// процент готовности 41%
+/// процент готовности 41,5%
 /// размер rom 2446bб ram 128b*n + 64b
 
 /// мыло для заинтересованных
@@ -213,8 +213,8 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     sSystem_task.sSYSHCLK = __SYSHCLK;
     sSystem_task.Main_size_start = (((_main_size+31) >> 5) << 5);
     sSystem_task.NVIC_size = (((NVIC_size +31) >> 5) << 5);
-    sSystem_task.tick_real = (__SYSHCLK / 1000) - 1;
-    sSystem_task.norm_mc = (__SYSHCLK / 1000) - 30;
+    sSystem_task.tick_real = (__SYSHCLK / 1000);
+    sSystem_task.norm_mc = ((__SYSHCLK - 5)/ 1000) - 4;
     sSystem_task.task_amt = 2;
     CoreDebug-> DEMCR |= 0x01000000;
     DWT->CYCCNT =0;

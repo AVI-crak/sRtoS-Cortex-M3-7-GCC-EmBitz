@@ -1,7 +1,7 @@
 // Cortex-M3 GCC EmBitz 0.40
 /* имя файла */
 /* RtoS_cortex_m3.S */
-/* процент готовности 41% */
+/* процент готовности 41,5% */
 /* размер rom 2446bб ram 128b*n + 64b */
 
 /* мыло для заинтересованных */
@@ -18,7 +18,7 @@
 
  .equ   __Test_psp,0               // проверка на ошибки
  .equ   __Vector_table,     0xE000ED08  // (0xE000ED04 SCB->ICSR)
- .equ   __DWT,              0xE0001000
+ .equ   __DWT,              0xE0001000  // таймер arm ядра, можно отключить "//" в начале строки
  .equ   __SysTick_CTRL,     0xE000E010  // #0xE010 SysTick->CTRL, #0xE014 SysTick->LOAD, #0xE018 SysTick->VAL
  .equ   __STACK_Mx,         32          //смещение до первого сохранёного элемента
 
@@ -539,6 +539,7 @@ __switch_norm:
             str     r2, [r3, #8]            // сохранили адрес стека текущей задачи
             str     r0, [r1]                // в переменной адрес новой задачи
 __switch_step: // rx0 - новая задача. учёт времени
+ .ifndef  __DWT
             ldr     r2, =__SysTick_CTRL
             ldr     r1, =sSystem_task
             ldr     r3, [r2, #4]            // SysTick->LOAD было
@@ -559,6 +560,21 @@ __switch_step: // rx0 - новая задача. учёт времени
             strhs   r4, [r1, #52]
             strhs   r5, [r1, #48]
             blo     __switch_sDelay_exit
+ .endif
+
+ .ifdef __DWT
+            ldr     r2, =__DWT
+            ldr     r1, =sSystem_task
+            ldr     r4, [r1, #56]           // норма остатка (1mc)
+            ldr     r5, [r1, #48]           // системное время
+            add     r5, r5, #1
+            ldr     r3, [r2, #4]            // системный таймер ядра
+            subs    r3, r3, r4
+            itte    hs  //>=
+            strhs   r3, [r2, #4]            // одновили остаток
+            strhs   r5, [r1, #48]
+            blo     __switch_sDelay_exit
+ .endif
 
 
           //  isb
@@ -829,8 +845,9 @@ sTask_nil_re:
             ldr     r0, [r12]
             ldr     r1, [r0]
             cmp     r0, r1
-            it      ne                       // то ждём физики
+            itt     ne                       // то ждём физики
             svcne   0x10                     // __switch
+            bne     sTask_nil_re
             wfi
             b       sTask_nil_re
 sTask_nil_nw:
