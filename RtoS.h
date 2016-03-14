@@ -44,7 +44,7 @@ struct
 
 
 
-volatile struct  task
+struct  task
 {
     struct task* task_new;          /// 0x00, #00  32b,- јдрес новой задачи, New task pointer
     struct task* task_lid;          /// 0x04, #04, 32b,- јдрес старой задачи, Old task pointer
@@ -107,15 +107,18 @@ return malloc_adres;
 
 /// «апрос ресурса, бесконечный цикл - пока не освободитс€
 /// Resource request, endless loop while resource not released
-static inline sTask_resource_ask (volatile uint32_t *name_resource)
+static void sTask_resource_ask (uint32_t *name_resource);
+void sTask_resource_ask (uint32_t *name_resource)
 {
+    uint32_t tmp;
+    tmp = sSystem_task.activ -> task_names;
+    if ( *name_resource == tmp ) return; else;
     do
-    {asm volatile  ("push   {r2}                \n\t"
-                    "mov    r2, %[_resource]    \n\t"
-                    "svc    0x6                 \n\t"
-                    "pop    {r2}                \n\t"
-                :: [_resource] "r" (name_resource):);
-    }while ( !( *name_resource == sSystem_task.activ -> task_names ) );
+    {
+        if(__LDREXW(name_resource) !=0) asm volatile  ( "svc    0x10    ");else;
+    }while ( __STREXW(tmp, name_resource));
+    __CLREX();
+
 }
 
 /// ќсвободить ресурс
@@ -130,7 +133,8 @@ void sTask_resource_free (uint32_t *name_resource)
 /// пример
 /// static uint32_t alarm_mc2;
 /// if (sTask_alarm_mc(&alarm_mc1,1000)) { действие каждую новую секунду }
-static uint32_t sTask_alarm_mc(uint32_t * timer_name, uint32_t timer_mc)
+static uint32_t sTask_alarm_mc(uint32_t * timer_name, uint32_t timer_mc);
+uint32_t sTask_alarm_mc(uint32_t * timer_name, uint32_t timer_mc)
 {
     uint32_t alarm;
 
@@ -214,7 +218,7 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     sSystem_task.Main_size_start = (((_main_size+31) >> 5) << 5);
     sSystem_task.NVIC_size = (((NVIC_size +31) >> 5) << 5);
     sSystem_task.tick_real = (__SYSHCLK / 1000);
-    sSystem_task.norm_mc = ((__SYSHCLK - 5)/ 1000) - 4;
+    sSystem_task.norm_mc = (__SYSHCLK / 1000) - 3;
     sSystem_task.task_amt = 2;
     CoreDebug-> DEMCR |= 0x01000000;
     DWT->CYCCNT =0;
