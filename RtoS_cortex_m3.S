@@ -472,20 +472,8 @@ __nil_ww:  // возврат из нити отложенных задач r7 - адрес размер
 
 
  .align 4
-__sTask_ask: // запрос ресурса  name_resource >> ("r4") >> resource_flag__
-            mov     r1, r4
-            ldr     r4, [r4]                // читаем хозяина
-            ldr     r2,  =sSystem_task
-            ldr     r2, [r2]                 // активная задача
-            ldr     r2, [r2, #28]            // имя
-            cmp     r4, r2
-            it      ne
-            cmpne   r4, #0
-            itt     ne
-            movne   r4, #0
-            bne     __switch                // переглючатель
-            mov     r4, r2
-            str     r2, [r1]                // новый хозяин
+__sTask_ask: // пусто
+            bkpt
             bx      lr
 
 
@@ -1044,34 +1032,7 @@ __memory_don1:
 
  .size sTask_nil, . - sTask_nil
 
-            /*
-            push    {r1, r2, r3, r4, r5, r6, r7, r8}
-            ldr     r8, =__DWT
-            mov     r1, #0
-            str     r1, [r8, #4]
-            ldr     r1, =__SysTick_CTRL
-            ldr     r7, =sSystem_task
-            ldr     r3, [r7, #54]           // норма остатка
-            ldr     r4, [r7, #52]           // остаток
-            ldr     r2, [r1, #4]            // SysTick->LOAD было
-            ldr     r6, [r1, #8]            // SysTick->VAL стало
-            ldrh    r5, [r1, #2]
-            cmp     r5, #1
-            ite     eq                      // пеерполнение
-            rsbeq   r6, r6, r2, lsl #1
-            subne   r6, r2, r6
-            add     r4, r4, r6
-            ldr     r6, [r7, #48]           //системное время
-            add     r6, r6, #1
-            subs    r2, r4, r3 //>=
-            itett      hs
-            strhs   r2, [r7, #52]
-            strlo   r4, [r7, #52]
-            strhs   r6, [r7, #48]
-            addhs   r6, r6, #1              // переход на делай
-            ldr     r1, [r8, #4]
-            pop    {r1, r2, r3, r4, r5, r6, r7, r8}
-            */
+
 
 
 
