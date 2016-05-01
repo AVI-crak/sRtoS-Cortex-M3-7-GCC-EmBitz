@@ -37,11 +37,11 @@ SVC_Handler:
 SVC_Table:
     .hword   ((__EnableIRQS - SVC_Table)/2)      //0
     .hword   ((__DisableIRQS - SVC_Table)/2)     //1
-    .hword   ((__malloc_in_0 - SVC_Table)/2)     //2
+    .hword   ((__malloc_in_0 - SVC_Table)/2)     //2 // пусто
     .hword   ((___sRandom - SVC_Table)/2)        //3
     .hword   ((__sTask_new - SVC_Table)/2)       //4
     .hword   ((__Delete_Task - SVC_Table)/2)     //5
-    .hword   ((__resource_ask - SVC_Table)/2)    //6
+    .hword   ((__resource_ask - SVC_Table)/2)    //6 // пусто
     .hword   ((__sDelay_new - SVC_Table)/2)      //7
     .hword   ((__sTask_wait - SVC_Table)/2)      //8
     .hword   ((__sTask_wake - SVC_Table)/2)      //9
@@ -222,8 +222,8 @@ __sTask_wake: // r0(глобал флаг - адрес) разбудить
             ldr     r2, [r1, #4]            // хвост
 __sTask_wake_next:
             ldr     r3, [r1, #16]           // читаем адрес флага в нити
-            sub     r3, r3, r0
-            cbz     r3, __sTask_wake_1      // нашлось
+            subs    r3, r3, r0
+            beq     __sTask_wake_1          // нашлось
             cmp     r2, r1
             itt     ne                      // не последняя
             ldrne   r1, [r1]                // там точно есть
@@ -285,13 +285,13 @@ __nil_1:
  .align 3
 __nil_exit:  // возврат из нити отложенных задач r7 - адрес размер
          //   ldr     r12,  =sSystem_task
-            ldr     r3, [r12, #12]           // задача из обработки маллок
+         //   ldr     r11, [r12, #12]           // задача из обработки маллок
             mov     r2, #0
-            strb    r2, [r3, #15]           // сброс флага
-            str     r2, [r3, #16]           // сброс адрес глобального флага пинка
-            ldr     r1, [r3, #4]            // хвост из обработки маллок
-            ldr     r0, [r3]                // новая голова из обработки маллок
-            cmp     r0, r3
+            strb    r2, [r11, #15]           // сброс флага
+            str     r2, [r11, #16]           // сброс адрес глобального флага пинка
+            ldr     r1, [r11, #4]            // хвост из обработки маллок
+            ldr     r0, [r11]                // новая голова из обработки маллок
+            cmp     r0, r11
             ittte   ne                      // не единственная
             strne   r0, [r1]                // хвост на голову
             strne   r1, [r0, #4]            // голова на хвост
@@ -299,10 +299,10 @@ __nil_exit:  // возврат из нити отложенных задач r7 - адрес размер
             streq   r2, [r12, #12]           // закрыли
             ldr     r0, [r12]               // активная задача в потоке
             ldr     r2, [r0, #4]            // хвост активной задачи
-            str     r3, [r2]                // хвост на новую
-            str     r2, [r3, #4]            // новая на хвост хвоста
-            str     r0, [r3]                // новая на голову активной
-            str     r3, [r0, #4]            // хвост активной на новую
+            str     r11, [r2]                // хвост на новую
+            str     r2, [r11, #4]            // новая на хвост хвоста
+            str     r0, [r11]                // новая на голову активной
+            str     r11, [r0, #4]            // хвост активной на новую
             dsb
             bx      lr
 
@@ -310,14 +310,15 @@ __nil_exit:  // возврат из нити отложенных задач r7 - адрес размер
 __sTask_list:   //   malloc_adres = *task_list #60- Список тасков
                 // task_list_zize_use #22- Количество тасков в списке
                 //task_list_zize_sys #20- Количество тасков в системе
-            ldr     r12, = sSystem_task     // временно
+        //    ldr     r12, = sSystem_task     // временно
             mov     r1, #16                 // активные, спящие, оживающие пинка, обработка памяти
             ldr     r0, [r12, #60]          // Список тасков
 __sTask_list_1:
             sub     r1, r1, #4
             cmp     r1, #18
-            bhi     __sTask_list_3           // проверили все существующие нити
-            ldr     r2, [r12, r1]            // адрес первой задачи
+            it      hi
+            bxhi    lr                      // проверили все существующие нити
+            ldr     r2, [r12, r1]           // адрес первой задачи
             cmp     r2, #0
             beq     __sTask_list_1
             mov     r3, r2                  // r3 первая задача в списке
@@ -327,8 +328,8 @@ __sTask_list_2:
             cmp     r2, r3
             bne     __sTask_list_2
             b       __sTask_list_1
-__sTask_list_3:
-            bx      lr
+//__sTask_list_3:
+  //          bx      lr
 
 
  .align 3
@@ -347,9 +348,9 @@ __memory_get: // SVC 0xE
             b       __nil_1
 
 __nil_step: // SVC 0xF     __nil_step
-            ldr     r0, [r12, #12]
-            ldr     r0, [r0]
-            str     r0, [r12, #12]
+        //    ldr     r0, [r12, #12]
+            ldr     r11, [r11]
+            str     r11, [r12, #12]
             bx      lr
 
 
@@ -582,8 +583,8 @@ _Start_task03:
             mov     r1, #0x0F
             mov     r0, #0xFF
             svc     0x0             //sNVIC_EnableIRQ(SysTick_IRQn, 15);
-            pop     {r0, r1, r2, r3, R4, R5, lr}
-            bx      lr
+            pop     {r0, r1, r2, r3, R4, R5, pc}
+  //          bx      lr
 
 
 
@@ -602,23 +603,20 @@ __sTask_nil_Nane:
  .global    sTask_kill
  .type    sTask_kill, %function
 sTask_kill: // +
-            push    {r0, r1, r2, r3 }
+            push    {r0, r1, r2, r3, lr }
             ldr     r3, = sSystem_task      // адрес переменной с адресом активной задачи
             ldr     r2, [r3]                // читаем адрес исполняемого банка
             ldr     r1, =__Main_Name
             ldr     r0, [r2, #28]
-            sub     r0, r1, r0
-            cbz     r0, sTask_kill_err
+            subs    r0, r1, r0
+            it      eq
+            popeq   {r0, r1, r2, r3, pc }
             mov     r1, #4                 // флаг обработки для sTask_nil, __sTask_kill: //4
             strb    r1, [r2, #15]          // флаг запроса на обработку
             mov     r3, 0xA                 //__nil_in 0xA;
             svc     0x0                    // нить отложенных заданий
             nop
-            nop
-            nop
-sTask_kill_err:
-            push    {r0, r1, r2, r3 }
-            bx      lr
+
 
  .size sTask_kill, . - sTask_kill
 
@@ -740,7 +738,7 @@ __malloc_Table:
     .hword   ((__sTask_kill - __malloc_Table)/2)    //4
     .hword   ((__memory_don - __malloc_Table)/2)    //5
     .hword   ((__sTask_new_01 - __malloc_Table)/2)  //6
-    .hword   ((__sTask_listr - __malloc_Table)/2)    //7
+  //  .hword   ((__sTask_listr - __malloc_Table)/2)    //7
  //   .hword   ((__maloc_in1 - __malloc_Table)/2)     //8
 
 
@@ -754,13 +752,7 @@ __eror_0: // флаг0 - ошибка
             mov     r3, #0xB
             svc     0x0                         // __nil_exit
             b       sTask_nil_re
- .align 3
-__sTask_listr:
-            ldr     r4, [sp, #__STACK_Px +4]    // читаем адрес malloc
-            str     r4, [r12, #60]              //Список тасков
-            mov     r3, #0xB
-            svc     0x0                         // __nil_exit
-            b       sTask_nil_re
+
 
 //новое
  .align 3
@@ -1000,7 +992,7 @@ __sTask_new_02:
             ldrh    r7, [r12, #22]          // #22- Количество тасков в списке
             lsl     r7, r7, #2
             ldr     r0, [r12, #24]          // удачный стек
-            ldr     r6, [r10, __STACK_Mx +4] // [psp +4] task_size
+            ldr     r6, [r10, #__STACK_Mx +4] // [psp +4] task_size
             add     r6, r6, #31
             bfc     r6, #0, #5              // выровняли размер новой задачи
             mov     r4, #0
@@ -1103,12 +1095,12 @@ __sTask_new_11:
             strh    r3, [r0, #12]           // Номер таска, Task unique ID
 
 
-            ldr     r1, [r10, __STACK_Mx]    // void (*taskS_func()) +0
+            ldr     r1, [r10, #__STACK_Mx]    // void (*taskS_func()) +0
             str     r1, [r0, #-8]           //сохранили pc
             ldr     r1, =sTask_kill
             str     r1, [r0, #-12]          //сохранили ложный lr
             ldr     r1, [r12, #32]          //tick_real - 100% тиков на задачу
-            ldr     r5, [r10, __STACK_Mx +8] //[psp +8]) task_time_rate %
+            ldr     r5, [r10, #__STACK_Mx +8] //[psp +8]) task_time_rate %
             strb    r5, [r0, #14]           //сохранили выделенный процент времени
             mul     r1, r1, r5
             mov     r3, #0
@@ -1122,23 +1114,15 @@ __sTask_new_11:
             mov     r3, #64
             strh    r3, [r0, #26]           //мах заюзанный размер стека
             str     r1, [r0, #20]           //Таймер активности задачи, Task activity timer
-            ldr     r1, [r10, __STACK_Mx -32] //[psp -32]) char* const task_func_name
+            ldr     r1, [r10, #__STACK_Mx -32] //[psp -32]) char* const task_func_name
             str     r1, [r0, #28]           //адрес имени задачи (char* const text)
             add     r2, r2, #32
-            ldr     r4, [r10, __STACK_Mx -28] // void* func_parametr
+            ldr     r4, [r10, #__STACK_Mx -28] // void* func_parametr
             cbz     r4, __sTask_new_13
             ldmia   r4!, {r5-r8}            //чтение параметров функции
             stmia   r2!, {r5-r8}            //установка параметров функции
-            /*
-            ldr     r5, [r4]
-            ldr     r6, [r4, #4]
-            ldr     r7, [r4, #8]
-            ldr     r8, [r4, #12]
-            str     r5, [r2]
-            str     r6, [r2, #4]
-            str     r7, [r2, #8]
-            str     r8, [r2, #12]
-            */
+
+
 __sTask_new_13:
             ldrh    r2, [r12, #20]              // Количество тасков в системе task_list_zize_sys
             add     r2, r2, #1

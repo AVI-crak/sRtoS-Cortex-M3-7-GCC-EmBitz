@@ -12,12 +12,13 @@
 /// репозиторий
 /// https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
 
+//#define  __Test_psp
 
 #ifndef _RtoS_
 
 //#define _bitFlag volatile uint32_t __attribute__ ((section(".flag"))) // так лучше
 
-#define __STACK_Mx3  32
+
 
 /// sSystem_task - формат банка
 struct
@@ -26,8 +27,6 @@ struct
     struct task* delay;                 ///#04- Адрес спящих задачь, Sleeping tsaks list pointer
     struct task* wait;                  ///#08- Адрес задач ожидающих пинка, Waiting tasks list pointer
     struct task* hold;                  ///#12- Адрес задач на обработку памяти, Tasks on hold list pointer
-  //  __IO uint32_t NVIC_size_max;        ///#16- Рабочий стек прерываний, Task maximum NVIC used stack
-  //  __IO uint32_t NVIC_size;            ///#20- Размер стека прерываний, Task NVIC stack size
     __IO uint16_t NVIC_size_max;        ///#16- Рабочий стек прерываний, Task maximum NVIC used stack
     __IO uint16_t NVIC_size;            ///#18- Размер стека прерываний, Task NVIC stack size
     __IO uint16_t task_list_zize_sys;   ///#20- Количество тасков в системе
@@ -252,7 +251,7 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     sSystem_task.Booked_stack = _main_size;
     sSystem_task.NVIC_size = (((NVIC_size +31) >> 5) << 5);
     sSystem_task.tick_real = (__SYSHCLK / 1000);
-    sSystem_task.norm_mc = (__SYSHCLK / 1000) - 3;
+    sSystem_task.norm_mc = (__SYSHCLK / 1000) - 6;
     sSystem_task.task_list_zize_sys = 2;
     CoreDebug-> DEMCR |= 0x01000000;
     DWT->CYCCNT =0;
@@ -347,237 +346,169 @@ uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
 return Random_max__;
 }
 
-/*
-static void sTask_nil_zz(void);
-void sTask_nil_zz(void)
+/// Шейкер-сортировка, первыми мах значения
+static void sShaker32max (uint32_t *arr, uint32_t size_buf);
+void sShaker32max (uint32_t *arr, uint32_t size_buf)
 {
-    uint32_t *hold_a;
-    uint32_t *hold_a_delay = 0;
-    uint8_t   step;
-    uint32_t malloc_zize;
-    uint32_t malloc_adres;
-    uint32_t malloc_start;
-    uint16_t malloc_nomer;
-    uint32_t malloc_zize_tmp;
-    uint32_t malloc_name_tmp;
-    uint16_t malloc_nomer_tmp;
-    uint32_t tmp;
+	uint32_t leftMark = 1 + arr ;
+	uint32_t buff;
+	uint32_t rightMark = arr;
+	uint32_t *i;
+	uint32_t step =1;
+	rightMark += (size_buf - 1) <<2;
+	while (leftMark <= rightMark)
+	{
+	    step =0;
+	    for (i = rightMark; i >= leftMark; i--)
+            {
+                if (*(i-1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        leftMark+=4;
+	    for (i = leftMark; i <= rightMark; i++)
+            {
+                if (*(i - 1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        rightMark-=4;
+		if (step ==0) break;
+	}
+};
 
-for(;;)
+/// Шейкер-сортировка, первыми мах значения
+static void sShaker16max (uint16_t *arr, uint32_t size_buf);
+void sShaker16max (uint16_t *arr, uint32_t size_buf)
 {
-    nil_re:
-    if (sSystem_task.hold == 0)
-    {
-        if(sSystem_task.activ == sSystem_task.activ->task_new)
-        {
-            asm volatile("mov   r3, #0x10   \n\t"   // __switch 0x10
-                         "svc    0x0         \n\t" :::"r3");
-            goto nil_re;
-        }else
-        {
-            asm volatile ("wfi"); goto nil_re;
-        };
-    }else;
-    if (sSystem_task.hold->task_wake.delay !=0)
-    {
-        sSystem_task.hold->task_wake.delay--;
-        asm volatile("mov   r3, #0xF     \n\t" //__nil_step 0xF
-                    "svc    0x0         \n\t" :::"r3");
-        goto nil_re;
-    }else;
-    if (sSystem_task.hold->task_wake.wake1 !=0)
-    {
-        step = sSystem_task.hold->task_wake.wake1;
-        sSystem_task.hold->task_wake.wake1 = sSystem_task.hold->task_wake.wake2;
-        sSystem_task.hold->task_wake.wake2 = sSystem_task.hold->task_wake.wake3;
-        sSystem_task.hold->task_wake.wake3 = 0;
-    }else step = sSystem_task.hold->flag;
-
-    switch (step)
-     {
-        case 0:  // флаг0 - ошибка
-            asm volatile("mov   r3, #0xB     \n\t" //__nil_exit 0xB
-                        "svc    0x0         \n\t" :::"r3");
-            goto nil_re;
-
-        case 1: // флаг 1, _maloc_in
-            if (sSystem_task.hold->task_wake.wake1 != 0) malloc_zize = sSystem_task.task_list_zize_use;
-            else malloc_zize = ( *(uint32_t*)(sSystem_task.hold->last_stack + __STACK_Mx3));
-            if ((malloc_zize ==0)&& ((malloc_zize>>23) >0))
-                {
-                    ( *(uint32_t*)(sSystem_task.hold->last_stack + __STACK_Mx3)) = (uint32_t) 0 - 1;
-                    asm volatile("mov   r3, #0xB     \n\t" //__nil_exit 0xB
-                        "svc    0x0         \n\t" :::"r3");
-                    goto nil_re;
-                }else;
-            malloc_zize = (malloc_zize + 7) >>2;
-            malloc_start = sSystem_task.malloc_start;
-        maloc_in_for:
-                malloc_name_tmp = ( *(uint32_t*)(malloc_start));
-                malloc_zize_tmp = (malloc_name_tmp <<9)>>9;
-                if (malloc_name_tmp ==0)
-                    {
-                        malloc_zize_tmp = malloc_zize;
-                        if (sSystem_task.task_stop < (malloc_start + (malloc_zize_tmp << 2)))
-                        {
-                            sSystem_task.hold->task_wake.delay = 20;
-                            sSystem_task.hold->task_wake.wake3 = sSystem_task.hold->task_wake.wake2;
-                            sSystem_task.hold->task_wake.wake2 = sSystem_task.hold->task_wake.wake1;
-                            sSystem_task.hold->task_wake.wake1 = 1;
-                            asm volatile("mov   r3, #0xF     \n\t" //__nil_step 0xF
-                                         "svc    0x0         \n\t" :::"r3");
-                            goto nil_re;
-                        }else;
-                        if (sSystem_task.malloc_stop < (malloc_start + (malloc_zize_tmp << 2)))
-                            sSystem_task.malloc_stop = malloc_start + (malloc_zize_tmp << 2); else;
-                        *(uint32_t*)(malloc_start + (malloc_zize_tmp << 2)) = 0;
-                        if (sSystem_task.hold->task_wake.wake1 != 0) malloc_name_tmp = 1;
-                        else malloc_name_tmp = sSystem_task.hold->task_nomer;
-                        *(uint32_t*) malloc_start = malloc_zize_tmp | (malloc_name_tmp <<23);
-                        tmp = malloc_start + 4; // готовый адрес
-                        if (sSystem_task.hold->task_wake.wake1 != 0) sSystem_task.task_list = tmp;
-                        else *(uint32_t*)(sSystem_task.hold->last_stack + __STACK_Mx3) = tmp;
-                        if (sSystem_task.hold->task_wake.wake1 == 0)
-                                asm volatile("mov   r3, #0xB     \n\t" //__nil_exit 0xB
-                                            "svc    0x0         \n\t" :::"r3");
-                            else; goto nil_re;
-                    }else;
-
-                malloc_name_tmp = malloc_name_tmp >> 23;
-                if (malloc_name_tmp !=0)
-                    {
-                        malloc_start = malloc_start + (malloc_zize_tmp <<2);
-                        goto maloc_in_for;
-                    }else;
-                tmp = malloc_zize_tmp + 3;
-                if (malloc_zize >= tmp)
-                    {
-                        malloc_start = malloc_start + (malloc_zize_tmp <<2);
-                        goto maloc_in_for;
-                    }else;
-                if (sSystem_task.hold->task_wake.wake1 != 0) malloc_name_tmp = 1;
-                    else malloc_name_tmp = sSystem_task.hold->task_nomer;
-                *(uint32_t*)(malloc_start) = malloc_zize || (malloc_name_tmp << 23);
-                *(uint32_t*)(malloc_start + (malloc_zize << 2 )) = malloc_zize_tmp - malloc_zize;
-                tmp = malloc_start + 4; // готовый адрес
-                if (sSystem_task.hold->task_wake.wake1 != 0) sSystem_task.task_list = tmp;
-                else *(uint32_t*)(sSystem_task.hold->last_stack + __STACK_Mx3) = tmp;
-                malloc_zize = (malloc_zize << 2) -4;
-                for (malloc_zize; malloc_zize == 0;malloc_zize -= 4)
-                    {
-                        *(uint32_t*)(malloc_start + malloc_zize) = 0;
-                    }
-                if (sSystem_task.hold->task_wake.wake1 == 0)
-                    asm volatile("mov   r3, #0xB     \n\t" //__nil_exit 0xB
-                                "svc    0x0         \n\t" :::"r3"); else;
-                goto nil_re;
-
-
-        case 2: // free
-            if (sSystem_task.hold->task_wake.wake1 != 0)
+	uint32_t leftMark = 1 + arr ;
+	uint16_t buff;
+	uint32_t rightMark = arr;
+	uint16_t *i;
+	uint32_t step =1;
+	rightMark += (size_buf - 1) <<1;
+	while (leftMark <= rightMark)
+	{
+	    step =0;
+	    for (i = rightMark; i >= leftMark; i--)
             {
-                malloc_adres = sSystem_task.task_list;
-                malloc_nomer = 1;
-            }else
+                if (*(i-1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        leftMark+=2;
+	    for (i = leftMark; i <= rightMark; i++)
             {
-                malloc_adres = ( *(uint32_t*)(sSystem_task.hold->last_stack + __STACK_Mx3));
-                malloc_nomer = sSystem_task.hold->task_nomer;
-            };
-            malloc_adres = malloc_adres -4;
-            malloc_zize = *(uint32_t*) malloc_adres;
-            malloc_zize_tmp = (malloc_zize <<9) >>9;
-            *(uint32_t*) malloc_adres = malloc_zize_tmp;
-            malloc_adres = sSystem_task.malloc_start;
-            malloc_nomer = 0;
-            malloc_zize = 0;
-            goto free_all_1;
+                if (*(i - 1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        rightMark-=2;
+		if (step ==0) break;
+	}
+};
 
-        case 3: // free_all
-            malloc_nomer = sSystem_task.hold->task_nomer;
-            malloc_adres = sSystem_task.malloc_start;
-            malloc_zize = 0;
-        free_all_1:
-            do
-                {
-                    malloc_name_tmp =  *(uint32_t*)(malloc_start + (malloc_zize << 2));
-                    malloc_zize_tmp = ( malloc_name_tmp <<9)>>9;
-                    malloc_name_tmp = malloc_name_tmp >> 23;
-                    if ((malloc_name_tmp == malloc_nomer)&& (malloc_name_tmp == 0))
-                        {
-                            malloc_zize = malloc_zize + malloc_zize_tmp;
-                            *(uint32_t*) malloc_start = malloc_zize <<2;
-                        }else
-                        {
-                            *(uint32_t*) malloc_start = malloc_zize_tmp <<2;
-                            malloc_start = malloc_start + (malloc_zize <<2);
-                            malloc_zize = 0;
-                        };
-                }while (*(uint32_t*)(malloc_start));
-            if (malloc_zize > 0) // самая нижняя граница
-                {
-                    *(uint32_t*) malloc_adres = 0;
-                    sSystem_task.malloc_stop = malloc_adres;
-                }else;
+/// Шейкер-сортировка, первыми мах значения
+static void sShaker8max (uint8_t *arr, uint32_t size_buf);
+void sShaker8max (uint8_t *arr, uint32_t size_buf)
+{
+	uint32_t leftMark = 1 + arr ;
+	uint8_t buff;
+	uint32_t rightMark = arr;
+	uint8_t *i;
+	uint32_t step =1;
+	rightMark += (size_buf - 1);
+	while (leftMark <= rightMark)
+	{
+	    step =0;
+	    for (i = rightMark; i >= leftMark; i--)
+            {
+                if (*(i-1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        leftMark++;
+	    for (i = leftMark; i <= rightMark; i++)
+            {
+                if (*(i - 1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        rightMark--;
+		if (step ==0) break;
+	}
+};
 
-            if (sSystem_task.hold->task_wake.wake1 == 0)
-                    asm volatile("mov   r3, #0xB     \n\t" //__nil_exit 0xB
-                                "svc    0x0         \n\t" :::"r3");
-                else; goto nil_re;
+/// Шейкер-сортировка, первыми мин значения
+static void sShaker32min (uint32_t *arr, uint32_t size_buf);
+void sShaker32min (uint32_t *arr, uint32_t size_buf)
+{
+	uint32_t leftMark = 1 + arr ;
+	uint32_t buff;
+	uint32_t rightMark = arr;
+	uint32_t *i;
+	uint32_t step =1;
+	rightMark += (size_buf - 1) <<2;
+	while (leftMark <= rightMark)
+	{
+	    step =0;
+	    for (i = rightMark; i >= leftMark; i--)
+            {
+                if (*(i-1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        leftMark+=4;
+	    for (i = leftMark; i <= rightMark; i++)
+            {
+                if (*(i - 1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        rightMark-=4;
+		if (step ==0) break;
+	}
+};
 
-        case 4: //sTask_kill
-            if (sSystem_task.hold->task_wake.wake1 == 0)
-                {
-                    sSystem_task.hold->task_wake.wake1 = 3; // free_all
-                    sSystem_task.hold->task_wake.wake2 = 4; //sTask_kill
-                    sSystem_task.hold->task_wake.wake3 = 0;
-                    goto nil_re;
-                }else
-                {
-                    asm volatile("mov   r3, #0x5     \n\t" // __Delete_Task 5
-                                "svc    0x0         \n\t" :::"r3");
-                    goto nil_re;
-                };
+/// Шейкер-сортировка, первыми мин значения
+static void sShaker16min (uint16_t *arr, uint32_t size_buf);
+void sShaker16min (uint16_t *arr, uint32_t size_buf)
+{
+	uint32_t leftMark = 1 + arr ;
+	uint16_t buff;
+	uint32_t rightMark = arr;
+	uint16_t *i;
+	uint32_t step =1;
+	rightMark += (size_buf - 1) <<1;
+	while (leftMark <= rightMark)
+	{
+	    step =0;
+	    for (i = rightMark; i >= leftMark; i--)
+            {
+                if (*(i-1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        leftMark+=2;
+	    for (i = leftMark; i <= rightMark; i++)
+            {
+                if (*(i - 1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        rightMark-=2;
+		if (step ==0) break;
+	}
+};
 
-        case 5: //  memory_don 5
-            goto nil_re;
+/// Шейкер-сортировка, первыми мин значения
+static void sShaker8min (uint8_t *arr, uint32_t size_buf);
+void sShaker8min (uint8_t *arr, uint32_t size_buf)
+{
+	uint32_t leftMark = 1 + arr ;
+	uint8_t buff;
+	uint32_t rightMark = arr;
+	uint8_t *i;
+	uint32_t step =1;
+	rightMark += (size_buf - 1);
+	while (leftMark <= rightMark)
+	{
+	    step =0;
+	    for (i = rightMark; i >= leftMark; i--)
+            {
+                if (*(i-1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        leftMark++;
+	    for (i = leftMark; i <= rightMark; i++)
+            {
+                if (*(i - 1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
+            }
+        rightMark--;
+		if (step ==0) break;
+	}
+};
 
 
-        case 6: // sTask_new
-            if ((sSystem_task.task_list_zize_sys >= sSystem_task.task_list_zize_use) &&
-                (sSystem_task.task_list_zize_use == 0))
-                {
-                    sSystem_task.task_list_zize_use = sSystem_task.task_list_zize_sys + 16;
-                    sSystem_task.hold->task_wake.wake1 = 2; // free
-                    sSystem_task.hold->task_wake.wake2 = 1; // maloc_in
-                    sSystem_task.hold->task_wake.wake3 = 7; // sTask_list_new
-                    goto nil_re;
-                }else;
-
-
-
-
-
-goto nil_re;
-
-
-
-        case 7: // sTask_list_new
-            asm volatile("mov   r3, #0xC     \n\t" //__sTask_list C
-                        "svc    0x0         \n\t" :::"r3");
-            goto nil_re;
-
-
-
-
-
-     }
-}
-}
-
-
-
-
-*/
 
 
 
