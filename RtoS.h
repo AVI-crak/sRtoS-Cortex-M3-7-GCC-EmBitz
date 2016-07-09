@@ -1,4 +1,4 @@
-/// Cortex-M3 GCC EmBitz 0.40
+/// Cortex-M3-7 GCC EmBitz 0.40
 /// имя файла
 /// RtoS.h
 /// процент готовности 42.5%
@@ -75,7 +75,9 @@ volatile uint32_t Random_register[3];
 
 /**
 
-флаг запроса на обработку
+Область флагов
+7b - математика
+6b-0b - флаги запроса на обработку
 1 получить новую область памяти
 2 удалить область памяти
 3 удалить все области памяти задачи
@@ -256,7 +258,7 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     CoreDebug-> DEMCR |= 0x01000000;
     DWT->CYCCNT =0;
     DWT->CTRL |=1; // enable the counter
-    SCB->CCR |= SCB_CCR_USERSETMPEND;
+    SCB->CCR |= 1 << SCB_CCR_USERSETMPEND_Pos;
     Start_task();
 }
 
@@ -507,6 +509,15 @@ void sShaker8min (uint8_t *arr, uint32_t size_buf)
 		if (step ==0) break;
 	}
 };
+
+static inline uint8_t unit_step (uint32_t in)
+{
+    uint8_t out;
+    asm volatile    ("rbit  %[_out], %[_in]     \n\t"
+                    "clz    %[_out], %[_out]    \n\t"
+                    :[_out] "=r" (out) :[_in] "r" (in):);
+    return (out);
+}
 
 
 
