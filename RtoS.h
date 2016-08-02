@@ -255,10 +255,11 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     sSystem_task.tick_real = (__SYSHCLK / 1000);
     sSystem_task.norm_mc = (__SYSHCLK / 1000) - 6;
     sSystem_task.task_list_zize_sys = 2;
-    CoreDebug-> DEMCR |= 0x01000000;
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->LAR = 0xC5ACCE55; //  разблокировать таймер DWT->CYCCNT для Cortex-M7
     DWT->CYCCNT =0;
     DWT->CTRL |=1; // enable the counter
-    SCB->CCR |= 1 << SCB_CCR_USERSETMPEND_Pos;
+    SCB->CCR |= SCB_CCR_USERSETMPEND_Msk;
     Start_task();
 }
 
