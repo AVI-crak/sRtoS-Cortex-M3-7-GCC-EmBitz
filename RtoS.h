@@ -1,7 +1,7 @@
-/// Cortex-M3-7 GCC EmBitz 0.40
-/// имя файла
-/// RtoS.h
-/// процент готовности 42.5%
+/// Cortex-M3-7 GCC EmBitz
+/// имя файла RtoS.h
+/// ось sRtoS
+/// процент готовности 42.6%
 /// размер rom 2446bб ram 128b*n + 64b
 
 /// мыло для заинтересованных
@@ -268,7 +268,7 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
 static inline __memory(void){asm volatile ("nop" : : : "memory");}
 
 
-/// Включить прерывание, преоритет (от 14 до 1)
+/// Включить прерывание, преоритет (от 14 до 0)
 static void  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority);
 void  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority)
 {
@@ -336,7 +336,7 @@ __attribute__( ( always_inline ) ) static inline sTask_skip (void)
 /// Убить задачу - только внутри работающей задачи
 //static void sTask_kill(void)
 
-static uint32_t sRandom(uint32_t Random_max,uint32_t Random_min); //++
+static volatile uint32_t sRandom(uint32_t Random_max,uint32_t Random_min); //++
 uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
 {
     register volatile uint32_t *Random_max__     asm     ("r0") = Random_max;
@@ -349,167 +349,215 @@ uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
 return Random_max__;
 }
 
-/// Шейкер-сортировка, первыми мах значения
-static void sShaker32max (uint32_t *arr, uint32_t size_buf);
-void sShaker32max (uint32_t *arr, uint32_t size_buf)
+//
+   //  lcd.data = RNG->DR;
+static volatile uint32_t sRandom_m4(uint32_t Random_max,uint32_t Random_min); //++
+uint32_t sRandom_m4(uint32_t Random_max,uint32_t Random_min)
 {
-	uint32_t leftMark = 1 + arr ;
-	uint32_t buff;
-	uint32_t rightMark = arr;
-	uint32_t *i;
-	uint32_t step =1;
-	rightMark += (size_buf - 1) <<2;
-	while (leftMark <= rightMark)
-	{
-	    step =0;
-	    for (i = rightMark; i >= leftMark; i--)
+    while(!(RNG->SR));
+    uint32_t tmp1;
+    uint32_t tmp2;
+    uint32_t Random;
+    if (Random_max < Random_min) return Random = 0;
+    tmp1 =0;
+     tmp1--;
+      Random = Random_max - Random_min;
+       tmp1 = tmp1 / Random;
+        tmp2 = (RNG->DR);
+         tmp2 = tmp2 / tmp1;
+          Random = tmp2 + Random_min;
+return Random;
+}
+
+
+
+/// Быстрая сортировка 8_t, первыми мин значения
+static void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right);
+void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right)
+{
+    int32_t iee, jee;
+    int32_t tmp, pivot;
+    pivot = arr8_t[(left + right) / 2]; // центральный элемент
+    iee = left;
+    jee = right;
+    while (iee <= jee)
+    {
+        while (arr8_t[iee] < pivot) iee++;
+        while (arr8_t[jee] > pivot) jee--;
+        if (iee <= jee)
+        {
+            tmp = arr8_t[iee];
+            arr8_t[iee] = arr8_t[jee];
+            arr8_t[jee] = tmp;
+            iee++;
+            jee--;
+        }
+    };
+    if (left < jee)
+    {
+        tmp = jee - left;
+        if (tmp > 128) qSort_8t(arr8_t, left, jee);
+        else
+        {
+            jee++;
+            for(; left < jee; left++)
             {
-                if (*(i-1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        leftMark+=4;
-	    for (i = leftMark; i <= rightMark; i++)
+                pivot = arr8_t[left];
+                for (tmp = left - 1; tmp >= 0 && arr8_t[tmp] > pivot; tmp--)
+                    {
+                        arr8_t[tmp + 1] = arr8_t[tmp];
+                    };
+            arr8_t[tmp + 1] = pivot;
+            };
+        };
+    };
+
+    if (iee < right)
+    {
+        tmp = right - iee;
+        if (tmp > 128) qSort_8t(arr8_t, iee, right);
+        else
+        {
+            right++;
+            for(; iee < right; iee++)
             {
-                if (*(i - 1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        rightMark-=4;
-		if (step ==0) break;
-	}
+                pivot = arr8_t[iee];
+                for (tmp = iee - 1; tmp >= 0 && arr8_t[tmp] > pivot; tmp--)
+                    {
+                        arr8_t[tmp + 1] = arr8_t[tmp];
+                    };
+            arr8_t[tmp + 1] = pivot;
+            };
+        };
+    };
+
 };
 
-/// Шейкер-сортировка, первыми мах значения
-static void sShaker16max (uint16_t *arr, uint32_t size_buf);
-void sShaker16max (uint16_t *arr, uint32_t size_buf)
+
+/// Быстрая сортировка 16_t, первыми мин значения
+static void qSort_16t(uint16_t *arr16_t, int32_t left, int32_t right);
+void qSort_16t(uint16_t *arr16_t, int32_t left, int32_t right)
 {
-	uint32_t leftMark = 1 + arr ;
-	uint16_t buff;
-	uint32_t rightMark = arr;
-	uint16_t *i;
-	uint32_t step =1;
-	rightMark += (size_buf - 1) <<1;
-	while (leftMark <= rightMark)
-	{
-	    step =0;
-	    for (i = rightMark; i >= leftMark; i--)
+    int32_t iee, jee;
+    int32_t tmp, pivot;
+    pivot = arr16_t[(left + right) / 2]; // центральный элемент
+    iee = left;
+    jee = right;
+    while (iee <= jee)
+    {
+        while (arr16_t[iee] < pivot) iee++;
+        while (arr16_t[jee] > pivot) jee--;
+        if (iee <= jee)
+        {
+            tmp = arr16_t[iee];
+            arr16_t[iee] = arr16_t[jee];
+            arr16_t[jee] = tmp;
+            iee++;
+            jee--;
+        }
+    };
+    if (left < jee)
+    {
+        tmp = jee - left;
+        if (tmp > 128) qSort_16t(arr16_t, left, jee);
+        else
+        {
+            jee++;
+            for(; left < jee; left++)
             {
-                if (*(i-1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        leftMark+=2;
-	    for (i = leftMark; i <= rightMark; i++)
+                pivot = arr16_t[left];
+                for (tmp = left - 1; tmp >= 0 && arr16_t[tmp] > pivot; tmp--)
+                    {
+                        arr16_t[tmp + 1] = arr16_t[tmp];
+                    };
+            arr16_t[tmp + 1] = pivot;
+            };
+        };
+    };
+
+    if (iee < right)
+    {
+        tmp = right - iee;
+        if (tmp > 128) qSort_16t(arr16_t, iee, right);
+        else
+        {
+            right++;
+            for(; iee < right; iee++)
             {
-                if (*(i - 1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        rightMark-=2;
-		if (step ==0) break;
-	}
+                pivot = arr16_t[iee];
+                for (tmp = iee - 1; tmp >= 0 && arr16_t[tmp] > pivot; tmp--)
+                    {
+                        arr16_t[tmp + 1] = arr16_t[tmp];
+                    };
+            arr16_t[tmp + 1] = pivot;
+            };
+        };
+    };
+
 };
 
-/// Шейкер-сортировка, первыми мах значения
-static void sShaker8max (uint8_t *arr, uint32_t size_buf);
-void sShaker8max (uint8_t *arr, uint32_t size_buf)
+/// Быстрая сортировка 32_t, первыми мин значения
+static void qSort_32t(uint32_t *arr32_t, int32_t left, int32_t right);
+void qSort_32t(uint32_t *arr32_t, int32_t left, int32_t right)
 {
-	uint32_t leftMark = 1 + arr ;
-	uint8_t buff;
-	uint32_t rightMark = arr;
-	uint8_t *i;
-	uint32_t step =1;
-	rightMark += (size_buf - 1);
-	while (leftMark <= rightMark)
-	{
-	    step =0;
-	    for (i = rightMark; i >= leftMark; i--)
+    int32_t iee, jee;
+    int32_t tmp, pivot;
+    pivot = arr32_t[(left + right) / 2]; // центральный элемент
+    iee = left;
+    jee = right;
+    while (iee <= jee)
+    {
+        while (arr32_t[iee] < pivot) iee++;
+        while (arr32_t[jee] > pivot) jee--;
+        if (iee <= jee)
+        {
+            tmp = arr32_t[iee];
+            arr32_t[iee] = arr32_t[jee];
+            arr32_t[jee] = tmp;
+            iee++;
+            jee--;
+        }
+    };
+    if (left < jee)
+    {
+        tmp = jee - left;
+        if (tmp > 128) qSort_32t(arr32_t, left, jee);
+        else
+        {
+            jee++;
+            for(; left < jee; left++)
             {
-                if (*(i-1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        leftMark++;
-	    for (i = leftMark; i <= rightMark; i++)
+                pivot = arr32_t[left];
+                for (tmp = left - 1; tmp >= 0 && arr32_t[tmp] > pivot; tmp--)
+                    {
+                        arr32_t[tmp + 1] = arr32_t[tmp];
+                    };
+            arr32_t[tmp + 1] = pivot;
+            };
+        };
+    };
+
+    if (iee < right)
+    {
+        tmp = right - iee;
+        if (tmp > 128) qSort_32t(arr32_t, iee, right);
+        else
+        {
+            right++;
+            for(; iee < right; iee++)
             {
-                if (*(i - 1) < *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        rightMark--;
-		if (step ==0) break;
-	}
+                pivot = arr32_t[iee];
+                for (tmp = iee - 1; tmp >= 0 && arr32_t[tmp] > pivot; tmp--)
+                    {
+                        arr32_t[tmp + 1] = arr32_t[tmp];
+                    };
+            arr32_t[tmp + 1] = pivot;
+            };
+        };
+    };
+
 };
 
-/// Шейкер-сортировка, первыми мин значения
-static void sShaker32min (uint32_t *arr, uint32_t size_buf);
-void sShaker32min (uint32_t *arr, uint32_t size_buf)
-{
-	uint32_t leftMark = 1 + arr ;
-	uint32_t buff;
-	uint32_t rightMark = arr;
-	uint32_t *i;
-	uint32_t step =1;
-	rightMark += (size_buf - 1) <<2;
-	while (leftMark <= rightMark)
-	{
-	    step =0;
-	    for (i = rightMark; i >= leftMark; i--)
-            {
-                if (*(i-1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        leftMark+=4;
-	    for (i = leftMark; i <= rightMark; i++)
-            {
-                if (*(i - 1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        rightMark-=4;
-		if (step ==0) break;
-	}
-};
-
-/// Шейкер-сортировка, первыми мин значения
-static void sShaker16min (uint16_t *arr, uint32_t size_buf);
-void sShaker16min (uint16_t *arr, uint32_t size_buf)
-{
-	uint32_t leftMark = 1 + arr ;
-	uint16_t buff;
-	uint32_t rightMark = arr;
-	uint16_t *i;
-	uint32_t step =1;
-	rightMark += (size_buf - 1) <<1;
-	while (leftMark <= rightMark)
-	{
-	    step =0;
-	    for (i = rightMark; i >= leftMark; i--)
-            {
-                if (*(i-1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        leftMark+=2;
-	    for (i = leftMark; i <= rightMark; i++)
-            {
-                if (*(i - 1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        rightMark-=2;
-		if (step ==0) break;
-	}
-};
-
-/// Шейкер-сортировка, первыми мин значения
-static void sShaker8min (uint8_t *arr, uint32_t size_buf);
-void sShaker8min (uint8_t *arr, uint32_t size_buf)
-{
-	uint32_t leftMark = 1 + arr ;
-	uint8_t buff;
-	uint32_t rightMark = arr;
-	uint8_t *i;
-	uint32_t step =1;
-	rightMark += (size_buf - 1);
-	while (leftMark <= rightMark)
-	{
-	    step =0;
-	    for (i = rightMark; i >= leftMark; i--)
-            {
-                if (*(i-1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        leftMark++;
-	    for (i = leftMark; i <= rightMark; i++)
-            {
-                if (*(i - 1) > *(i)) {buff = *(i); *(i) = *(i-1); *(i-1) = buff;step=1;};
-            }
-        rightMark--;
-		if (step ==0) break;
-	}
-};
 
 static inline uint8_t unit_step (uint32_t in)
 {
@@ -524,7 +572,7 @@ static inline uint8_t unit_step (uint32_t in)
 
 
 
-#endif _RtoS_
+#endif /* _RtoS_ */
 #define _RtoS_
 
 
