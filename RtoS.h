@@ -1,18 +1,20 @@
-/// Cortex-M3-7 GCC EmBitz
-/// имя файла RtoS.h
-/// ось sRtoS
-/// процент готовности 42.6%
-/// размер rom 2446bб ram 128b*n + 64b
+/**
+ @file    RtoS_cortex_m7.S
+ @author  AVI-crak
+ @version V-43%
+ @date    28-декабря-2016
+ @brief   Аxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
-/// мыло для заинтересованных
-/// videocrak@maol.ru
-/// форум для обсуждения
-/// http://forum.ixbt.com/topic.cgi?id=48:11735
+ license
+ Million helicopters and one cent.
 
-/// репозиторий
-/// https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
+ форум для обсуждения
+ http://forum.ixbt.com/topic.cgi?id=48:11735
 
-//#define  __Test_psp
+ репозиторий
+ https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
+*/
+
 
 #ifndef _RtoS_
 
@@ -118,7 +120,7 @@ asm volatile  ( "svc    0xD                     \n\t"
 static uint32_t sTask_memory_get (char* const task_func_name); //X не готово
 uint32_t sTask_memory_get (char* const task_func_name)
 {
-register volatile uint32_t malloc_adres asm  ("r0") = task_func_name;
+register  uint32_t malloc_adres asm  ("r0") = task_func_name;
 asm volatile  ( "svc    0xE                     \n\t"
                 "nop                            \n\t"
                 :"=r" (malloc_adres)
@@ -133,7 +135,7 @@ static void sTask_resource_ask (uint32_t *name_resource);
 void sTask_resource_ask (uint32_t *name_resource)
 {
     uint32_t tmp;
-    tmp = sSystem_task.activ -> task_names;
+    tmp = *(sSystem_task.activ -> task_names);
     if ( *name_resource == tmp ) return; else;
     do
     {
@@ -150,7 +152,7 @@ void sTask_resource_ask (uint32_t *name_resource)
 static void sTask_resource_free (uint32_t *name_resource);
 void sTask_resource_free (uint32_t *name_resource)
 {
-    if ( *name_resource == sSystem_task.activ -> task_names ) *name_resource = 0; else;
+    if ( *name_resource == *(sSystem_task.activ -> task_names) ) *name_resource = 0; else;
 }
 
 /// Функция отложенного события по циклическому таймеру
@@ -180,7 +182,7 @@ static uint32_t malloc (uint32_t malloc_zize);
 uint32_t malloc (uint32_t malloc_zize)
 {
     sSystem_task.activ->flag = 1;
-    register volatile   *malloc_adres     asm  ("r0") = malloc_zize;
+    register uint32_t   malloc_adres     asm  ("r0") = malloc_zize;
     asm volatile    ("push   {r3}               \n\t"
                     "mov     r3, 0xA            \n\t" //__nil_in 0xA;
                     "svc    0x0                 \n\t"
@@ -196,7 +198,7 @@ void free (void* malloc_adres)
     if  (malloc_adres ==0) return; else;
     if (sSystem_task.activ->task_nomer != (( *(uint32_t*)(malloc_adres -4))>>23))return; else;
     sSystem_task.activ->flag = 2;
-    register volatile   __malloc_adres     asm  ("r0") = malloc_adres;
+    register    void   *__malloc_adres     asm  ("r0") = malloc_adres;
     asm volatile    ("push   {r3}               \n\t"
                     "mov     r3, 0xA            \n\t" //__nil_in 0xA;
                     "svc    0x0                 \n\t"
@@ -208,7 +210,7 @@ void free (void* malloc_adres)
 static void sTask_wake(uint32_t* task_global_flag);
 void sTask_wake(uint32_t* task_global_flag)
 {
-    register volatile   *__task_global_flag     asm  ("r0") = task_global_flag;
+    register    uint32_t   *__task_global_flag     asm  ("r0") = task_global_flag;
     asm volatile    ("push   {r3}               \n\t"
                     "mov     r3, 0x9            \n\t" //__sTask_wake //9;
                     "svc    0x0                 \n\t"
@@ -221,7 +223,7 @@ void sTask_wake(uint32_t* task_global_flag)
 static void sTask_wait(uint32_t* task_global_flag);
 void sTask_wait(uint32_t* task_global_flag)
 {
-    register volatile   *__task_global_flag     asm  ("r0") = task_global_flag;
+    register    uint32_t   *__task_global_flag     asm  ("r0") = task_global_flag;
     asm volatile    ("push   {r3}               \n\t"
                     "mov     r3, 0x8            \n\t" //__sTask_wait //8;
                     "svc    0x0                 \n\t"
@@ -235,13 +237,15 @@ void sTask_wait(uint32_t* task_global_flag)
 static void sDelay_mc(uint32_t Delay_mc);
 void sDelay_mc(uint32_t Delay_mc)
 {
-    register volatile   *__Delay_mc     asm  ("r0") = Delay_mc;
+    register    uint32_t   __Delay_mc     asm  ("r0") = Delay_mc;
     asm volatile    ("push   {r3}               \n\t"
                     "mov     r3, 0x7            \n\t" //__sDelay_new //7;
                     "svc    0x0                 \n\t"
                     "pop    {r3}                \n\t"
                     :: "r" (__Delay_mc):"memory");
 }
+
+void __attribute__ ((weak))Start_task(void);
 
 /// Старт ОS
 /// частота ядра в гц, размер стека майна,
@@ -256,7 +260,9 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     sSystem_task.norm_mc = (__SYSHCLK / 1000) - 6;
     sSystem_task.task_list_zize_sys = 2;
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    #ifdef   __CM7_REV
     DWT->LAR = 0xC5ACCE55; //  разблокировать таймер DWT->CYCCNT для Cortex-M7
+    #endif
     DWT->CYCCNT =0;
     DWT->CTRL |=1; // enable the counter
     SCB->CCR |= SCB_CCR_USERSETMPEND_Msk;
@@ -265,15 +271,15 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
 
 
 /// Барьер оптимизатора GCC
-static inline __memory(void){asm volatile ("nop" : : : "memory");}
+static inline void __memory(void){asm volatile ("nop" : : : "memory");}
 
 
 /// Включить прерывание, преоритет (от 14 до 0)
-static void  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority);
-void  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority)
+static void  sNVIC_EnableIRQ(IRQn_Type IRQn, uint8_t priority);
+void  sNVIC_EnableIRQ(IRQn_Type IRQn, uint8_t priority)
 {
-    register volatile   __IRQn          asm  ("r0") = IRQn;
-    register volatile   *__priority     asm ("r1") = priority;
+    register uint8_t    __IRQn          asm  ("r0") = IRQn;
+    register uint8_t    __priority      asm  ("r1") = priority;
     asm volatile    ("push   {r3}               \n\t"
                     "mov     r3, 0x0            \n\t" //__EnableIRQS //0;
                     "svc    0x0                 \n\t"
@@ -287,7 +293,7 @@ void  sNVIC_EnableIRQ(IRQn_Type IRQn, uint32_t priority)
 static void sNVIC_DisableIRQ(IRQn_Type IRQn);
 void sNVIC_DisableIRQ(IRQn_Type IRQn)
 {
-    register volatile   __IRQn     asm  ("r0") = IRQn;
+    register uint8_t    __IRQn          asm  ("r0") = IRQn;
     asm volatile    ("push   {r3}               \n\t"
                     "mov     r3, 0x0            \n\t" //__DisableIRQS //1;
                     "svc    0x0                 \n\t"
@@ -301,21 +307,21 @@ void sNVIC_DisableIRQ(IRQn_Type IRQn)
 /// Новая задача - после запуска ос
 ///  функция , размер стека , процент времени 1-100 ,
 ///         указатель на массив параметров новой задачи [4]
-static void sTask_new (void (*taskS_func()),uint32_t task_size,uint32_t task_time_rate,char* const task_func_name,void* task_func_massif4_data  );
+static void sTask_new (void (*taskS_func()),uint32_t task_size,uint8_t task_time_rate,char* const task_func_name,void* task_func_massif4_data  );
 void sTask_new (void (*taskS_func()),
                         uint32_t task_size,
-                        uint32_t task_time_rate,
+                        uint8_t task_time_rate,
                         char* const task_func_name,
                         void* task_func_massif4_data  )
 {
-register volatile   *taskS_func__     asm     ("r0") = taskS_func;
-register volatile   *task_size__      asm     ("r1") = task_size;
+register void       *taskS_func__       asm     ("r0") = taskS_func;
+register uint32_t   task_size__         asm     ("r1") = task_size;
 if (task_time_rate >100) task_time_rate = 100;else;
 if (task_time_rate < 1) task_time_rate = 1;else;
-register volatile   *task_time_rate__ asm     ("r2") = task_time_rate;
-register volatile   *task_nil_in      asm     ("r3") = 0xA; //A
-register volatile   *task_func_name__ asm     ("r4") = task_func_name;
-register volatile   *func_massif4__   asm     ("r5") = task_func_massif4_data;
+register uint32_t   task_time_rate__    asm     ("r2") = task_time_rate;
+register uint32_t   task_nil_in         asm     ("r3") = 0xA; //A
+register uint8_t    *task_func_name__   asm     ("r4") = task_func_name;
+register uint32_t   *func_massif4__     asm     ("r5") = task_func_massif4_data;
 sSystem_task.activ->flag = 6;
 // да чтоб икалось в бесконечности всем рацинализаторам GCC
     asm volatile  ("svc    0x0             \n\t"  //
@@ -326,7 +332,7 @@ sSystem_task.activ->flag = 6;
 
 
 /// Уступить время - только внутри работающей задачи
-__attribute__( ( always_inline ) ) static inline sTask_skip (void)
+__attribute__( ( always_inline ) ) static inline void sTask_skip (void)
 {
     asm volatile    ("mov   r3, #0x10   \n\t"
                     "svc    0x0         \n\t"
@@ -334,13 +340,13 @@ __attribute__( ( always_inline ) ) static inline sTask_skip (void)
 }
 
 /// Убить задачу - только внутри работающей задачи
-//static void sTask_kill(void)
+void __attribute__ ((weak)) sTask_kill(void);
 
-static volatile uint32_t sRandom(uint32_t Random_max,uint32_t Random_min); //++
+static uint32_t sRandom(uint32_t volatile Random_max,uint32_t volatile Random_min); //++
 uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
 {
-    register volatile uint32_t *Random_max__     asm     ("r0") = Random_max;
-    register volatile uint32_t *Random_min__     asm     ("r1") = Random_min;
+    register  uint32_t Random_max__     asm     ("r0") = Random_max;
+    register  uint32_t Random_min__     asm     ("r1") = Random_min;
     asm volatile    ("push  {r3}                \n\t"
                      "mov   r3, #3              \n\t"
                      "svc   0x0                 \n\t" //3
@@ -350,8 +356,8 @@ return Random_max__;
 }
 
 //
-   //  lcd.data = RNG->DR;
-static volatile uint32_t sRandom_m4(uint32_t Random_max,uint32_t Random_min); //++
+#ifdef   __CM7_REV
+static uint32_t sRandom_m4(uint32_t Random_max,uint32_t Random_min); //++
 uint32_t sRandom_m4(uint32_t Random_max,uint32_t Random_min)
 {
     while(!(RNG->SR));
@@ -368,7 +374,7 @@ uint32_t sRandom_m4(uint32_t Random_max,uint32_t Random_min)
           Random = tmp2 + Random_min;
 return Random;
 }
-
+#endif /* __CM7_REV */
 
 
 /// Быстрая сортировка 8_t, первыми мин значения
