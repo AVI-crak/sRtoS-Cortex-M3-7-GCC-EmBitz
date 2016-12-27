@@ -1,27 +1,29 @@
-// Cortex-M7 GCC EmBitz 0.40
-/* имя файла */
-/* RtoS_cortex_m7.S */
-/* процент готовности 11% */
-/* размер... не успел посчитать */
+/**
+ @file    RtoS_cortex_m7.S
+ @author  AVI-crak
+ @version V-11%
+ @date    28-декабря-2016
+ @brief   Аxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
-/* мыло для заинтересованных */
-/* videocrak@maol.ru */
-/* форум для обсуждения */
-/* http://forum.ixbt.com/topic.cgi?id=48:11735 */
+ license
+ Million helicopters and one cent.
 
-/* репозиторий */
-/* https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc */
+ форум для обсуждения
+ http://forum.ixbt.com/topic.cgi?id=48:11735
 
-/* общий размер 200, минимальный размер стека под задачу 400
-/* STACK_Fx -96,-92,-88,-84,-80,-76,-72,-68,-64, -4,   0,  4,  8, 12,  16, 20, 24,  28, 32,~ 96,  100,  104 */
-/*           r4, r5, r6, r7, r8, r9,r10,r11,s16~s31,H,r0, r1, r2, r3, r12, LR, PC,xPSR, s0,-s15,fpscr,/0x0/ */
+ репозиторий
+ https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
 
-/* STACK_Mx -32,-28,-24,-20,-16,-12, -8, -4,  0,  4,  8, 12,  16, 20, 24,   28 */
-/*           r4, r5, r6, r7, r8, r9,r10,r11, r0, r1, r2, r3, r12, LR, PC, xPSR */
+ общий размер 200, минимальный размер стека под задачу 400
+ STACK_Fx -96,-92,-88,-84,-80,-76,-72,-68,-64, -4,   0,  4,  8, 12,  16, 20, 24,  28, 32,~ 96,  100,  104
+           r4, r5, r6, r7, r8, r9,r10,r11,s16~s31,H,r0, r1, r2, r3, r12, LR, PC,xPSR, s0,-s15,fpscr,/0x0/
 
+ STACK_Mx -32,-28,-24,-20,-16,-12, -8, -4,  0,  4,  8, 12,  16, 20, 24,   28
+           r4, r5, r6, r7, r8, r9,r10,r11, r0, r1, r2, r3, r12, LR, PC, xPSR
 
+*/
  .syntax unified
- .arch armv7-m
+ .arch armv7e-m
 
  .equ   __Test_psp,0               // проверка на ошибки
  .equ   __Vector_table,     0xE000ED08  // (0xE000ED04 SCB->ICSR)
@@ -33,6 +35,7 @@
 
 
  .align 3
+ .section  .text.SVC_Handler
  .globl     SVC_Handler
  .type    SVC_Handler, %function
 
@@ -55,7 +58,7 @@ SVC_Table:
     .hword   ((__memory_donate - SVC_Table)/2)   //D
     .hword   ((__memory_get - SVC_Table)/2)      //E
     .hword   ((__nil_step - SVC_Table)/2)          //F
-    .hword   ((__switch - SVC_Table)/2)          //10
+    .hword   ((__switch - SVC_Table)/2)          //10  переглючатель
 
 
  .align 3
@@ -489,8 +492,8 @@ __switch_sDelay_exit:
 
 
             ldr     r12, =__SysTick_CTRL
-            mov     r3, #15
-            lsl     r3, r3, #20
+         //   mov     r3, #15
+         //   lsl     r3, r3, #20
             ldr     r2, [r0, #8]            // читаем адрес стека
             ldmia   r2!, {r4-r11}           // читаем сохранённое
             vldmia  r2!, {s16-s31}           // грузим математику
@@ -508,6 +511,7 @@ __switch_sDelay_exit:
 
 
  .align 3
+ .section  .text.Start_task
  .globl    Start_task
  .type    Start_task, %function
 
@@ -642,6 +646,7 @@ __sTask_nil_Nane:
 
 
  .align 3
+ .section  .text.sTask_kill
  .global    sTask_kill
  .type    sTask_kill, %function
 sTask_kill: // +
@@ -670,6 +675,7 @@ sTask_kill: // +
 
  .ifdef  __Test_psp
  .align 3
+ .section  .text.Handler_zize
  .globl    Handler_zize
  .type    Handler_zize, %function
 Handler_zize:
@@ -694,13 +700,14 @@ Handler_zi:
 
 
  .align 3
- .globl    SysTick_Handler
- .type    SysTick_Handler, %function
-SysTick_Handler:    //++
+ .globl     SysTick_Handler
+ .type      SysTick_Handler, %function
+// .section   .qsdramload.SysTick_Handler
+ .section  .text.SysTick_Handler
+SysTick_Handler:
             mov     r3, #0x10
-            svc     0x0                 //__switch 0x10 __sDelay_work
+            svc     0x0
             bx      lr
-
  .size SysTick_Handler, . - SysTick_Handler
 
 
@@ -708,6 +715,7 @@ SysTick_Handler:    //++
 
 
  .align 3
+ .section  .text.sTask_nil
  .globl    sTask_nil
  .type    sTask_nil, %function
 sTask_nil:
@@ -727,11 +735,10 @@ sTask_nil_re:
             ldr     r0, [r12]
             ldr     r1, [r0]
             cmp     r0, r1                  // активная единственная нулевая
-            ittt    ne                       // то ждём физики
+            itte    ne                       // то ждём физики
             movne   r3, 0x10
             svcne   0x0                     // __switch 0x10
-            bne     sTask_nil_re
-            wfi
+            wfeeq
             b       sTask_nil_re
 sTask_nil_nw:
             ldr     r10, [r5, #8]           // читаем стек задачи
@@ -1175,8 +1182,26 @@ __sTask_new_13:
 
 
  .size sTask_nil, . - sTask_nil
+ /*
 
+.word  _sisdramdata
+.word  _sqsdramload
+.word  _eqsdramload
 
+// Call the clock system initialization function
+            bl  SystemInit
 
+__LOADSDRAM:
+            ldr     r0, =_sisdramdata
+            ldr     r1, =_sqsdramload
+            ldr     r2, =_eqsdramload
+__LOADSDRAMx:
+            cmp     r1, r2
+            ittt    ne
+            ldrne   r3, [r0], #4
+            strne   r3, [r1], #4
+            bne     __LOADSDRAMx
 
+            bl  main
 
+*/
