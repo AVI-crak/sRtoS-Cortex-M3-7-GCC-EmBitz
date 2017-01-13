@@ -23,7 +23,9 @@
 
 */
  .syntax unified
+ .cpu cortex-m7
  .arch armv7e-m
+// .fpu hard
 
  .equ   __Test_psp,0               // проверка на ошибки
  .equ   __Vector_table,     0xE000ED08  // (0xE000ED04 SCB->ICSR)
