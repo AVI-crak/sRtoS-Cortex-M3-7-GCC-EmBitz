@@ -23,7 +23,7 @@
 
 
 /// sSystem_task - формат банка
-struct
+ struct S_task
 {
     struct task* activ;                 ///#00- Адрес активной задачи, Active task pointer
     struct task* delay;                 ///#04- Адрес спящих задачь, Sleeping tsaks list pointer
@@ -44,6 +44,8 @@ struct
     __IO uint32_t norm_mc;              ///#56- Норма остатка (1mc)
     __I uint32_t *task_list;            ///#60- Список тасков
 }sSystem_task ;
+
+
 
 /// Режим состояния отложенных, State mode hold
 struct t_wake {
@@ -307,8 +309,8 @@ void sNVIC_DisableIRQ(IRQn_Type IRQn)
 /// Новая задача - после запуска ос
 ///  функция , размер стека , процент времени 1-100 ,
 ///         указатель на массив параметров новой задачи [4]
-static void sTask_new (void (*taskS_func()),uint32_t task_size,uint8_t task_time_rate,char* const task_func_name,void* task_func_massif4_data  );
-void sTask_new (void (*taskS_func()),
+static void sTask_new (void (*taskS_func(void)),uint32_t task_size,uint8_t task_time_rate,char* const task_func_name,void* task_func_massif4_data  );
+void sTask_new (void (*taskS_func(void)),
                         uint32_t task_size,
                         uint8_t task_time_rate,
                         char* const task_func_name,
