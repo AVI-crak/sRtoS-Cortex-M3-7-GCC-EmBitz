@@ -1,14 +1,21 @@
 
-//#include "Font_12x16.h"
-
 #ifndef _monitor_
 
 
 
-#define buf_zize    (128)
+#define buf_zize    (512)
 uint8_t  _std_out_buffer[buf_zize];
 uint8_t  _std_in_buffer[buf_zize];
-uint8_t  m_mk_buf[(buf_zize + 1)];
+
+
+union m_mk_b
+{
+uint8_t     buf_8[(buf_zize + 1)];
+uint32_t    buf_32[(buf_zize >> 2)];
+}m_mk_buf;
+
+
+
 typedef struct
 {
     uint16_t            length;
@@ -23,25 +30,18 @@ void monitor_reset (void)
 {
     _eb_monitor_stdout.ptr = &_std_out_buffer[0];
     _eb_monitor_stdout.length = buf_zize ;
-    _eb_monitor_stdout.head = _eb_monitor_stdout.tail;
     _eb_monitor_stdin.ptr = &_std_in_buffer[0];
     _eb_monitor_stdin.length = buf_zize ;
-    _eb_monitor_stdin.tail = _eb_monitor_stdin.head;
-
 };
 
-void monitor_expect (void)
-{
-    while (_eb_monitor_stdout.head != _eb_monitor_stdout.tail)sTask_skip();
-};
 
 void monitor_fining (void)
 {
     uint16_t tmp = 0;
     do
     {
-        m_mk_buf[tmp++] = 0x20;
-    }while (tmp != buf_zize);
+        m_mk_buf.buf_32[tmp++] = 0x20202020;
+    }while (tmp != (buf_zize >> 2));
 };
 
 
@@ -50,9 +50,9 @@ void monitor_fining (void)
 void monitor_print (uint8_t* text)
 {
     uint32_t temp_t = 0;
+    if (text[temp_t] == '\0') return;
     uint32_t temp_h = _eb_monitor_stdout.head;
     uint32_t temp_l;
-    if (text[temp_t] == '\0') return;
     while (text[temp_t] != '\0')
     {
         temp_l = temp_h; temp_h++;
@@ -99,9 +99,12 @@ uint16_t    temp_buf;
 uint32_t    temp_n;
                         //  5    10     16
 char     txt_mode[]= "hold\0wait\0delay\0activ\0";
+uint32_t time_tax;
+uint32_t time_tax2;
 
 while(1)
 {
+   time_tax = sSystem_task.system_us;
 //                   15           5        10        10        10
 monitor_print("Task_name     ;  ID;     zize; max_zize;     time;   mode\n");
 Ltask_list_zize_sys = sSystem_task.task_list_zize_sys;    //Количество тасков в системе
@@ -110,26 +113,25 @@ while(Ltask_list_zize_sys != 0 )
 {
    if ( *(sSystem_task.task_list + temp_list) != 0 )
    {
-        monitor_expect();
         monitor_fining();
         struct task* Ltask; Ltask = *(sSystem_task.task_list + temp_list);temp_use = 0; temp_buf = 0;
         do
         {
-          m_mk_buf[temp_buf++] = Ltask->task_names[temp_use++];
+          m_mk_buf.buf_8[temp_buf++] = Ltask->task_names[temp_use++];
         }
         while (Ltask->task_names[temp_use] != '\0');
         temp_use = Ltask->task_nomer;temp_buf = 19;
-        while (temp_use != 0){m_mk_buf[--temp_buf] = temp_use %10 + '0'; temp_use /= 10; };
+        while (temp_use != 0){m_mk_buf.buf_8[--temp_buf] = temp_use %10 + '0'; temp_use /= 10; };
         temp_use = Ltask->stack_zize;temp_buf = 29;
-        while (temp_use != 0){m_mk_buf[--temp_buf] = temp_use %10 + '0'; temp_use /= 10; };
+        while (temp_use != 0){m_mk_buf.buf_8[--temp_buf] = temp_use %10 + '0'; temp_use /= 10; };
         temp_use = Ltask->stack_max_zize;temp_buf = 39;
-        while (temp_use != 0){m_mk_buf[--temp_buf] = temp_use %10 + '0'; temp_use /= 10; };
+        while (temp_use != 0){m_mk_buf.buf_8[--temp_buf] = temp_use %10 + '0'; temp_use /= 10; };
         temp_use = Ltask->life_time;temp_buf = 49;
-        while (temp_use != 0){m_mk_buf[--temp_buf] = temp_use %10 + '0'; temp_use /= 10; };
+        while (temp_use != 0){m_mk_buf.buf_8[--temp_buf] = temp_use %10 + '0'; temp_use /= 10; };
         temp_n = 16;
         if (sSystem_task.hold != 0)
         {
-            Ltask_step = sSystem_task.hold;temp_use = 100;
+            Ltask_step = sSystem_task.hold;temp_use = sSystem_task.task_list_zize_sys;
             do
             {
                 if (Ltask_step == Ltask) { temp_n = 0;}
@@ -138,7 +140,7 @@ while(Ltask_list_zize_sys != 0 )
         };
         if (sSystem_task.wait != 0)
         {
-            Ltask_step = sSystem_task.wait;temp_use = 100;
+            Ltask_step = sSystem_task.wait;temp_use = sSystem_task.task_list_zize_sys;
             do
             {
                 if (Ltask_step == Ltask) { temp_n = 5;}
@@ -147,7 +149,7 @@ while(Ltask_list_zize_sys != 0 )
         };
         if (sSystem_task.delay != 0)
         {
-            Ltask_step = sSystem_task.delay;temp_use = 100;
+            Ltask_step = sSystem_task.delay;temp_use = sSystem_task.task_list_zize_sys;
             do
             {
                 if (Ltask_step == Ltask) { temp_n = 10; }
@@ -155,7 +157,7 @@ while(Ltask_list_zize_sys != 0 )
             }while (( Ltask_step != sSystem_task.delay ) && temp_use--);
         }else
         {
-            Ltask_step = sSystem_task.activ;temp_use = 100;
+            Ltask_step = sSystem_task.activ;temp_use = sSystem_task.task_list_zize_sys;
             do
             {
                 if (Ltask_step == Ltask) { temp_n = 16;}
@@ -166,16 +168,13 @@ while(Ltask_list_zize_sys != 0 )
         temp_buf = 52;
         do
         {
-          m_mk_buf[temp_buf++] = txt_mode[temp_n++];
+          m_mk_buf.buf_8[temp_buf++] = txt_mode[temp_n++];
         }
         while ( txt_mode[temp_n] != '\0');
         temp_buf = 59;
-        m_mk_buf[temp_buf++] = '\n';
-        m_mk_buf[temp_buf++] = 0;
-        __memory();
-        monitor_print (&m_mk_buf[0]);
-        __memory();
-        monitor_expect();
+        m_mk_buf.buf_8[temp_buf++] = '\n';
+        m_mk_buf.buf_8[temp_buf++] = 0;
+        monitor_print (&m_mk_buf.buf_8[0]);
         temp_list++; Ltask_list_zize_sys--;
    }else
    {
@@ -183,8 +182,15 @@ while(Ltask_list_zize_sys != 0 )
      if (temp_list > sSystem_task.task_list_zize_use) break;
    }
 }
-sDelay_mc(1000);
+
+monitor_print ("NVIC_size_max: "); monitor_print (t32_char( sSystem_task.NVIC_size_max ,txt_buf));
+monitor_print ("\nNVIC_size: "); monitor_print (t32_char( sSystem_task.NVIC_size ,txt_buf));
+monitor_print ("\nTime_ptint: ");monitor_print (t32_char(time_tax2,txt_buf));
+time_tax2 = sSystem_task.system_us - time_tax;
+if (time_tax2 < 1500)temp_use = 1500;else temp_use = time_tax2 * 5;
+sDelay_mc(temp_use);
 monitor_print("\f");
+
 }
 }
 
