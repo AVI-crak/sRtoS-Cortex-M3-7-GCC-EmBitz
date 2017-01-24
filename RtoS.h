@@ -1,8 +1,8 @@
 /**
- @file    RtoS_cortex_m7.S
+ @file    RtoS.h
  @author  AVI-crak
- @version V-43%
- @date    28-декабря-2016
+ @version V-44%
+ @date    25-января-2017
  @brief   Аxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
  license
@@ -42,35 +42,78 @@
     __I uint32_t system_us;             ///#48- Системное время, System time counter
     __IO uint32_t spall_us;             ///#52- Дробный остаток
     __IO uint32_t norm_mc;              ///#56- Норма остатка (1mc)
-    __I uint32_t *task_list;            ///#60- Список тасков
+    struct task** task_list;            ///#60- Список тасков
+    union  _fla                         ///#64- Набр кривых флагов
+    {
+        struct fl
+        {
+            uint32_t reliability_task_list:1;  /// обработка task_list, 1 - можно читать
+            uint32_t stop:5;
+            uint32_t a:1;
+            uint32_t b:1;
+            uint32_t c:1;
+            uint32_t d:2;
+            uint32_t e:1;
+            uint32_t f:1;
+            uint32_t g:1;
+            uint32_t h:1;
+            uint32_t i:1;
+            uint32_t j:1;
+            uint32_t k:1;
+            uint32_t l:1;
+            uint32_t m:1;
+            uint32_t n:1;
+            uint32_t o:1;
+            uint32_t p:1;
+            uint32_t q:1;
+            uint32_t r:1;
+            uint32_t s:1;
+            uint32_t t:1;
+            uint32_t u:1;
+            uint32_t v:1;
+            uint32_t w:1;
+            uint32_t x:1;
+            uint32_t y:1;
+            uint32_t z:1;
+        } flag;
+        uint32_t flag_all;
+    }sustem_flag;
 }sSystem_task ;
 
 
 
-/// Режим состояния отложенных, State mode hold
-struct t_wake {
-    __IO uint8_t    delay;              /// 0x10, #16, 8b,- Задержка выполнения
-    __IO uint8_t    wake1;              /// 0x11, #17, 8b,- Первая в цепи
-    __IO uint8_t    wake2;              /// 0x12, #18, 8b,- Вторая в цепи
-    __IO uint8_t    wake3;              /// 0x13, #19, 8b,- Третья в цепи
-    };
+
 
 struct  task
 {
-    struct task* task_new;          /// 0x00, #00  32b,- Адрес новой задачи, New task pointer
-    struct task* task_lid;          /// 0x04, #04, 32b,- Адрес старой задачи, Old task pointer
-    __IO uint32_t last_stack;       /// 0x08, #08, 32b,- Cтек задачи, Stack pointer
-    __IO uint16_t task_nomer;       /// 0x0C, #12, 16b,- Номер таска, Task unique ID
-    __IO uint8_t percent;           /// 0x0E, #14, 08b,- Процент активности задачи, Task percentage usage
-    __IO uint8_t flag;              /// 0x0F, #15, 08b,- Флаг запроса на обработку, Processing request flag
-    struct t_wake task_wake;        /// 0x10, #16, 32b,
-  /// struct task* delay - Время сна (мс), Sleeping time
-  /// struct task* wait - Адрес глобального флага пинка, Address global flag kick
-  /// struct task* hold - Режим состояния отложенных, State mode hold
-    __IO uint32_t life_time;        /// 0x14, #20, 32b,- Таймер активности задачи, Task activity timer
-    __IO uint16_t stack_zize;       /// 0x18, #24, 16b,- Размер стека, Task stack size
-    __IO uint16_t stack_max_zize;   /// 0x1A, #26, 16b,- Рабочий стек, Task maximum used stack
-    __IO char* task_names;          /// 0x1C, #28, 32b,- Имя задачи, Task name
+    struct task*    task_new;           /// 0x00, #00  32b,- Адрес новой задачи, New task pointer
+    struct task*    task_lid;           /// 0x04, #04, 32b,- Адрес старой задачи, Old task pointer
+    volatile uint32_t   last_stack;         /// 0x08, #08, 32b,- Cтек задачи, Stack pointer
+    union{
+    struct _nomer
+        {
+    const volatile uint16_t    task_nomer:9;       /// 0x0C, #12, 9b,- Номер таска, Task unique ID
+    const volatile    uint16_t    fri:5;
+    const volatile uint16_t    mode:2;             /// 0x0C, #12, >>14 2b - Режим таска
+        }m_n;
+    volatile uint16_t    ntt;
+    }mode_nomer;
+    volatile uint8_t    percent;            /// 0x0E, #14, 08b,- Процент активности задачи, Task percentage usage
+    volatile uint8_t    flag;               /// 0x0F, #15, 08b,- Флаг запроса на обработку, Processing request flag
+    union{
+    struct _wake
+        {
+    __IO uint8_t    delay;          /// 0x10, #16, 8b,- Задержка выполнения
+    __IO uint8_t    wake1;          /// 0x11, #17, 8b,- Первая в цепи
+    __IO uint8_t    wake2;          /// 0x12, #18, 8b,- Вторая в цепи
+    __IO uint8_t    wake3;          /// 0x13, #19, 8b,- Третья в цепи
+        }t_wake;
+    volatile uint32_t   delay_wake;
+    }d_wake;
+    volatile uint32_t   life_time;          /// 0x14, #20, 32b,- Таймер активности задачи, Task activity timer
+    volatile uint16_t   stack_zize;         /// 0x18, #24, 16b,- Размер стека, Task stack size
+    volatile uint16_t   stack_max_zize;     /// 0x1A, #26, 16b,- Рабочий стек, Task maximum used stack
+    const volatile char*      task_names;         /// 0x1C, #28, 32b,- Имя задачи, Task name
 };
 
 
@@ -103,7 +146,11 @@ volatile uint32_t Random_register[3];
 0x12, #18   8b-HL (адрес назначения)
 0x13, #19   8b-HH (режим состояния)
 
-
+Режим таска mode
+hold = 0
+wait = 1
+delay = 2
+activ = 3
 
 */
 
@@ -198,7 +245,7 @@ static void free (void* malloc_adres);
 void free (void* malloc_adres)
 {
     if  (malloc_adres ==0) return; else;
-    if (sSystem_task.activ->task_nomer != (( *(uint32_t*)(malloc_adres -4))>>23))return; else;
+    if (sSystem_task.activ->mode_nomer.m_n.task_nomer != (( *(uint32_t*)(malloc_adres -4))>>23))return; else;
     sSystem_task.activ->flag = 2;
     register    void   *__malloc_adres     asm  ("r0") = malloc_adres;
     asm volatile    ("push   {r3}               \n\t"
@@ -213,10 +260,13 @@ static void sTask_wake(uint32_t* task_global_flag);
 void sTask_wake(uint32_t* task_global_flag)
 {
     register    uint32_t   *__task_global_flag     asm  ("r0") = task_global_flag;
-    asm volatile    ("push   {r3}               \n\t"
-                    "mov     r3, 0x9            \n\t" //__sTask_wake //9;
-                    "svc    0x0                 \n\t"
-                    "pop    {r3}                \n\t"
+    asm volatile    ("push      {r3}        \n\t"
+                    "ldr        r3, [r0]    \n\t"
+                    "cmp        r3, #0      \n\t"
+                    "itt        ne          \n\t"
+                    "movne      r3, 0x9     \n\t" //__sTask_wake //9;
+                    "svcne      0x0         \n\t"
+                    "pop        {r3}        \n\t"
                     :: "r" (__task_global_flag):);
 }
 
@@ -275,6 +325,9 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
 /// Барьер оптимизатора GCC
 static inline void __memory(void){asm volatile ("nop" : : : "memory");}
 
+/// Измерение рабочего размера тека прерываний
+void __attribute__ ((weak)) sHandler_zize(void);
+
 
 /// Включить прерывание, преоритет (от 14 до 0)
 static void  sNVIC_EnableIRQ(IRQn_Type IRQn, uint8_t priority);
@@ -309,8 +362,8 @@ void sNVIC_DisableIRQ(IRQn_Type IRQn)
 /// Новая задача - после запуска ос
 ///  функция , размер стека , процент времени 1-100 ,
 ///         указатель на массив параметров новой задачи [4]
-static void sTask_new (void (*taskS_func(void)),uint32_t task_size,uint8_t task_time_rate,char* const task_func_name,void* task_func_massif4_data  );
-void sTask_new (void (*taskS_func(void)),
+static void sTask_new (void (*taskS_func),uint32_t task_size,uint8_t task_time_rate,char* const task_func_name,void* task_func_massif4_data  );
+void sTask_new (void (*taskS_func),
                         uint32_t task_size,
                         uint8_t task_time_rate,
                         char* const task_func_name,
