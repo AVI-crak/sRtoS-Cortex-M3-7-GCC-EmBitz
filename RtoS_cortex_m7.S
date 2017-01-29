@@ -2,7 +2,7 @@
  @file    RtoS_cortex_m7.S
  @author  AVI-crak
  @version V-12%
- @date    25-€нвар€-2017
+ @date    28-декабр€-2016
  @brief   јxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
  license
@@ -26,6 +26,8 @@
  .cpu cortex-m7
  .arch armv7e-m
  .thumb
+ //.thumb_func
+
 
  .equ   __Test_psp,0               // проверка на ошибки
  .equ   __Vector_table,     0xE000ED08  // (0xE000ED04 SCB->ICSR)
@@ -36,7 +38,7 @@
 
 
 
- .align 3
+ .align 2
  .section  .text.SVC_Handler
  .globl     SVC_Handler
  .type    SVC_Handler, %function
@@ -63,7 +65,7 @@ SVC_Table:
     .hword   ((__switch - SVC_Table)/2)          //10  переглючатель
 
 
- .align 3
+ .align 2
 __EnableIRQS: // ("r0") = IRQn, ("r1") = priority; ++
             movw    r12, #0xE70C
             movt    r12, #0xE000
@@ -94,7 +96,7 @@ __EnableIRQS: // ("r0") = IRQn, ("r1") = priority; ++
             str     r1, [r2, r0]
             bx      lr
 
- .align 3
+ .align 2
 __DisableIRQS: // ("r0") = IRQn; ++
 //NVIC->ICER[((uint32_t)(IRQn) >> 5)] = (1 << ((uint32_t)(IRQn) & 0x1F)); /* disable interrupt */
             mov     r3, #0x1F
@@ -107,12 +109,12 @@ __DisableIRQS: // ("r0") = IRQn; ++
             movt    r3, #0xE000
             str     r2, [r3, r1]
             bx      lr
- .align 3
+ .align 2
 __Enabling_FPU: // не понадобилась
 
             bx      lr
 
- .align 3
+ .align 2
 ___sRandom: // ("r0") = Random_max, ("r1") = Random_min
             ldr     r3, =Random_register
             ldmia   r3!, {r0-r2}           // читаем сохранЄнное
@@ -148,7 +150,7 @@ ___sRandom_1:
             bx      lr
 
 
- .align 3
+ .align 2
 __sTask_new: // r0 - нова€ задача
             ldr     r2, [r12]                //активна€ задача
             ldr     r3, [r2, #4]            //адрес преведущей задачи ( указывает на голову)
@@ -157,11 +159,11 @@ __sTask_new: // r0 - нова€ задача
             str     r2, [r0]                //нова€ указывает на активную
             str     r3, [r0, #4]            //нова€ указывает на старую голову
             b       __nil_exit
- .align 3
+ .align 2
 __resource_ask:  // пусто
             bx      lr
 
- .align 3
+ .align 2
 __Delete_Task: // 5
             ldr     r12,= sSystem_task       // адрес банка задачь
             ldr     r3, [r12, #12]           // активна€ sTask_nil
@@ -194,7 +196,7 @@ __Delete_Task_1:
             bx      lr
 
 
- .align 3
+ .align 2
 __sDelay_new:       // ("r0") = Delay_mc +
             ldr     r12,  =sSystem_task
             ldr     r1, [r12]                // активна€ задача
@@ -209,7 +211,7 @@ __sDelay_new:       // ("r0") = Delay_mc +
             mov     r3, #4                  // задачи сна
             b       __nil_1
 
- .align 3
+ .align 2
 __sTask_wait: // ("r0") = task_global_flag +
             ldr     r12,  =sSystem_task
             ldr     r1, [r12]                // активна€ задача
@@ -225,7 +227,7 @@ __sTask_wait: // ("r0") = task_global_flag +
             b       __nil_1
 
 
- .align 3
+ .align 2
 __sTask_wake: // r0(глобал флаг - адрес) разбудить
             cbz     r0, __sTask_wake_exit   // а там пусто...
             ldr     r3, [r0]                // читаем глобальный флаг
@@ -265,12 +267,12 @@ __sTask_wake_1:
             mov     r3, #192
             add     r2, r2, r3
             strb    r2, [r1, #13]           // mode_nomer 3 activ
-            isb
+            dsb
 __sTask_wake_exit:
             bx      lr
 
 
- .align 3
+ .align 2
 __nil_in: // нить отложенных заданий // r1 активна€ задача
             ldr     r12,  =sSystem_task
             ldr     r1, [r12]                // активна€ задача
@@ -307,7 +309,7 @@ __nil_1:
             b       __switch_step
 
 
- .align 3
+ .align 2
 __nil_exit:  // возврат из нити отложенных задач r7 - адрес размер
          //   ldr     r12,  =sSystem_task
          //   ldr     r11, [r12, #12]           // задача из обработки маллок
@@ -333,10 +335,10 @@ __nil_exit:  // возврат из нити отложенных задач r7 - адрес размер
             mov     r3, #192
             add     r2, r2, r3
             strb    r2, [r11, #13]           // mode 3 = activ
-            isb
+            dsb
             bx      lr
 
- .align 3
+ .align 2
 __sTask_list:   //   malloc_adres = *task_list #60- —писок тасков
                 // task_list_zize_use #22-  оличество тасков в списке
                 //task_list_zize_sys #20-  оличество тасков в системе
@@ -362,7 +364,7 @@ __sTask_list_2:
   //          bx      lr
 
 
- .align 3
+ .align 2
 __memory_donate: // SVC 0xD
             ldr     r12,  =sSystem_task
             ldr     r3, [r12]
@@ -401,10 +403,8 @@ __switch: // переглючатель +
             bls     __switch_norm
             bkpt        // пошаговый возврат в жадную задачу
             bx      lr // rx0 адрес в стеке, rx2- требуемый размер стека
-
-__switch_norm:
  .endif
-
+__switch_norm:
             ldr     r12, = sSystem_task     // адрес переменной с адресом активной задачи
             ldr     r3, [r12]               // читаем адрес исполн€емого банка
             ldr     r0, [r3]                // читаем адрес следующей нити
@@ -481,7 +481,6 @@ __switch_sDelay_next:
             mov     r9, #192
             add     r8, r8, r9
             strb    r8, [r11, #13]           // mode 3 = activ
-            isb
 __switch_sDelay_past:
             subs    r3, r7, r2
             itt     ne
@@ -490,8 +489,7 @@ __switch_sDelay_past:
 
 __switch_sDelay_exit:
 
-
-
+            isb
             ldr     r12, =__SysTick_CTRL
             ldr     r2, [r0, #8]            // читаем адрес стека
             ldmia   r2!, {r4-r11}           // читаем сохранЄнное
@@ -502,14 +500,14 @@ __switch_sDelay_exit:
             str     r3, [r12, #8]           // перезаруск #0xE018 SysTick->VAL
             strh    r3, [r12]
             msr	    psp, r2                 // переписываем стек
-            isb
+            dsb
             bx      lr
 
 
  .size SVC_Handler, . - SVC_Handler
 
 
- .align 3
+ .align 2
  .section  .text.Start_task
  .globl    Start_task
  .type    Start_task, %function
@@ -604,9 +602,9 @@ _Start_task03:
             str     r1, [r3, #28]   //адрес имени задачи (char* text) // номер задачи
             movw    r1, #0xC001
             strh    r1, [r3, #12]   //Ќомер таска
-            mov     r1, #128
-            strh    r1, [r3, #24]   //размер стека сохранили
             mov     r1, #600
+            strh    r1, [r3, #24]   //размер стека сохранили
+            mov     r1, #32
             strh    r1, [r3, #26]   //мах заюзанный размер стека
             ldr     r2, [r5]        //адрес таблицы майна
             ldrh    r1, [r5, #24]   //размер стека майна
@@ -640,11 +638,11 @@ __Main_Name:
  .asciz "Main"
 __sTask_nil_Nane:
  .asciz "sTask_nil"
-
+ .align 3
  .size Start_task, . - Start_task
 
 
- .align 3
+ .align 2
  .section  .text.sTask_kill
  .global    sTask_kill
  .type    sTask_kill, %function
@@ -673,7 +671,7 @@ sTask_kill: // +
 
 
  .ifdef  __Test_psp
- .align 3
+ .align 2
  .section  .text.sHandler_zize
  .globl    sHandler_zize
  .type    sHandler_zize, %function
@@ -698,7 +696,7 @@ sHandler_zi:
  .endif
 
 
- .align 3
+ .align 2
  .globl     SysTick_Handler
  .type      SysTick_Handler, %function
 // .section   .qsdramload.SysTick_Handler
@@ -713,7 +711,7 @@ SysTick_Handler:
 
 
 
- .align 3
+ .align 2
  .section  .text.sTask_nil
  .globl    sTask_nil
  .type    sTask_nil, %function
@@ -737,7 +735,7 @@ sTask_nil_re:
             itt    ne                       // то ждЄм физики
             movne   r3, 0x10
             svcne   0x0                     // __switch 0x10
-         //   wfieq
+         //  wfieq
             b       sTask_nil_re
 sTask_nil_nw:
             ldr     r10, [r5, #8]           // читаем стек задачи
@@ -793,7 +791,7 @@ __malloc_Table:
   //  .hword   ((__sDel_new - __malloc_Table)/2)
 
 
- .align 3
+ .align 2
 __eror_0: // флаг0 - ошибка
             //ldr     r5, =__nil_exit
             mov     r3, #0xB
@@ -802,7 +800,7 @@ __eror_0: // флаг0 - ошибка
 
 
 //новое
- .align 3
+ .align 2
 __maloc_in: // флаг 1 - текуща€ задача r11 - ибо заепало ++
             cmp     r10, #0
             ite     eq
@@ -887,7 +885,7 @@ __maloc_in_02:
 
 
 
- .align 3
+ .align 2
 __free:
             ldr     r7, [r11, #8]           // читаем стек задачи
             ldr     r2, [r10, #__STACK_Fx]   // читаем free (malloc_adres) задачи
@@ -898,7 +896,7 @@ __free:
             ldr     r1, [r12, #36]          // malloc_start - первый адрес malloc
             b       __free_all_1
 
- .align 3
+ .align 2
 __free_all: // 3
             cmp     r10, #0
             ite     eq
@@ -948,7 +946,7 @@ __free_all_3:
             svcne   0x0                     // __nil_exit
             b       sTask_nil_re            // новый круг
 
- .align 3
+ .align 2
 __sTask_kill: //4
             ldrh    r0, [r11, #12]          //- Ќомер таска, Task unique ID
             bfc     r0, #9, #7
@@ -964,7 +962,7 @@ __sTask_kill: //4
             b       sTask_nil_re            // новый круг
 
 
- .align 3
+ .align 2
 __memory_don:   // svc 0xD;  стек r0 *link_memory, r1 char* const task_func_name
             ldr     r1, [r11, #8]            // Cтек задачи
             ldr     r2, [r1, __STACK_Fx +4]  // [r1] char* const task_func_name
@@ -997,7 +995,7 @@ __memory_don1:
             svc     0x0                     // __nil_exit
             b       sTask_nil_re
 
- .align 3
+ .align 2
 __sTask_new_01: // нова€ задача флаг 6
                 // [r0]) void (*taskS_func()), [r1] task_size ,
                 // [r2] task_time_rate , [r4] char* const task_func_name
