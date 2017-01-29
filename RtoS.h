@@ -1,8 +1,8 @@
 /**
- @file    RtoS.h
+ @file    RtoS_cortex_m7.S
  @author  AVI-crak
  @version V-44%
- @date    25-января-2017
+ @date    28-декабря-2016
  @brief   Аxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
  license
@@ -52,7 +52,7 @@
             uint32_t a:1;
             uint32_t b:1;
             uint32_t c:1;
-            uint32_t d:2;
+            uint32_t d:1;
             uint32_t e:1;
             uint32_t f:1;
             uint32_t g:1;
@@ -166,8 +166,8 @@ asm volatile  ( "svc    0xD                     \n\t"
 
 /// Получить память от другой нитки ("task_func_name") (функция подтверждения)
 ///Get memory from another threa
-static uint32_t sTask_memory_get (char* const task_func_name); //X не готово
-uint32_t sTask_memory_get (char* const task_func_name)
+static uint32_t sTask_memory_get (char* task_func_name); //X не готово
+uint32_t sTask_memory_get (char* task_func_name)
 {
 register  uint32_t malloc_adres asm  ("r0") = task_func_name;
 asm volatile  ( "svc    0xE                     \n\t"
@@ -189,11 +189,11 @@ void sTask_resource_ask (uint32_t *name_resource)
     do
     {
         if(__LDREXW(name_resource) !=0)
-            asm volatile   ("mov   r3, #0x10   \n\t"
+            asm volatile   ("clrex              \n\t"
+                            "mov   r3, #0x10    \n\t"
                             "svc    0x0         \n\t"
                             ::: "r3");else;
     }while ( __STREXW(tmp, name_resource));
-    __CLREX();
 }
 
 /// Освободить ресурс
@@ -436,58 +436,58 @@ return Random;
 static void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right);
 void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right)
 {
-    int32_t iee, jee;
-    int32_t tmp, pivot;
-    pivot = arr8_t[(left + right) / 2]; // центральный элемент
-    iee = left;
-    jee = right;
-    while (iee <= jee)
+    int32_t iee_8, jee_8;
+    int32_t tmp_8, pivot_8;
+    pivot_8 = arr8_t[(left + right) / 2]; // центральный элемент
+    iee_8 = left;
+    jee_8 = right;
+    while (iee_8 <= jee_8)
     {
-        while (arr8_t[iee] < pivot) iee++;
-        while (arr8_t[jee] > pivot) jee--;
-        if (iee <= jee)
+        while (arr8_t[iee_8] < pivot_8) iee_8++;
+        while (arr8_t[jee_8] > pivot_8) jee_8--;
+        if (iee_8 <= jee_8)
         {
-            tmp = arr8_t[iee];
-            arr8_t[iee] = arr8_t[jee];
-            arr8_t[jee] = tmp;
-            iee++;
-            jee--;
+            tmp_8 = arr8_t[iee_8];
+            arr8_t[iee_8] = arr8_t[jee_8];
+            arr8_t[jee_8] = tmp_8;
+            iee_8++;
+            jee_8--;
         }
     };
-    if (left < jee)
+    if (left < jee_8)
     {
-        tmp = jee - left;
-        if (tmp > 128) qSort_8t(arr8_t, left, jee);
+        tmp_8 = jee_8 - left;
+        if (tmp_8 > 128) qSort_8t(arr8_t, left, jee_8);
         else
         {
-            jee++;
-            for(; left < jee; left++)
+            jee_8++;
+            for(; left < jee_8; left++)
             {
-                pivot = arr8_t[left];
-                for (tmp = left - 1; tmp >= 0 && arr8_t[tmp] > pivot; tmp--)
+                pivot_8 = arr8_t[left];
+                for (tmp_8 = left - 1; tmp_8 >= 0 && arr8_t[tmp_8] > pivot_8; tmp_8--)
                     {
-                        arr8_t[tmp + 1] = arr8_t[tmp];
+                        arr8_t[tmp_8 + 1] = arr8_t[tmp_8];
                     };
-            arr8_t[tmp + 1] = pivot;
+            arr8_t[tmp_8 + 1] = pivot_8;
             };
         };
     };
 
-    if (iee < right)
+    if (iee_8 < right)
     {
-        tmp = right - iee;
-        if (tmp > 128) qSort_8t(arr8_t, iee, right);
+        tmp_8 = right - iee_8;
+        if (tmp_8 > 128) qSort_8t(arr8_t, iee_8, right);
         else
         {
             right++;
-            for(; iee < right; iee++)
+            for(; iee_8 < right; iee_8++)
             {
-                pivot = arr8_t[iee];
-                for (tmp = iee - 1; tmp >= 0 && arr8_t[tmp] > pivot; tmp--)
+                pivot_8 = arr8_t[iee_8];
+                for (tmp_8 = iee_8 - 1; tmp_8 >= 0 && arr8_t[tmp_8] > pivot_8; tmp_8--)
                     {
-                        arr8_t[tmp + 1] = arr8_t[tmp];
+                        arr8_t[tmp_8 + 1] = arr8_t[tmp_8];
                     };
-            arr8_t[tmp + 1] = pivot;
+            arr8_t[tmp_8 + 1] = pivot_8;
             };
         };
     };
@@ -628,7 +628,6 @@ static inline uint8_t unit_step (uint32_t in)
                     :[_out] "=r" (out) :[_in] "r" (in):);
     return (out);
 }
-
 
 
 
