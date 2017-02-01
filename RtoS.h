@@ -21,9 +21,9 @@
 //#define _bitFlag volatile uint32_t __attribute__ ((section(".flag"))) // так лучше
 
 
-
+#pragma pack(push, 4)
 /// sSystem_task - формат банка
- struct S_task
+struct S_task
 {
     struct task* activ;                 ///#00- Адрес активной задачи, Active task pointer
     struct task* delay;                 ///#04- Адрес спящих задачь, Sleeping tsaks list pointer
@@ -78,8 +78,8 @@
         } flag;
         uint32_t flag_all;
     }sustem_flag;
-}sSystem_task ;
-
+}sSystem_task ={25,};
+#pragma pack(pop)
 
 
 
@@ -431,7 +431,7 @@ return Random;
 }
 #endif /* __CM7_REV */
 
-
+ /*
 /// Быстрая сортировка 8_t, первыми мин значения
 static void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right);
 void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right)
@@ -493,6 +493,38 @@ void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right)
     };
 
 };
+*/
+
+
+/// Быстрая сортировка 8_t, первыми мин значения
+static void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right);
+void qSort_8t(uint8_t *arr8_t, int32_t left, int32_t right)
+{
+    int32_t iee_8, jee_8;
+    int32_t tmp_8, pivot_8;
+    pivot_8 = arr8_t[(left + right) / 2]; // центральный элемент
+    iee_8 = left;
+    jee_8 = right;
+    while (iee_8 <= jee_8)
+    {
+        while (arr8_t[iee_8] < pivot_8) iee_8++;
+        while (arr8_t[jee_8] > pivot_8) jee_8--;
+        if (iee_8 <= jee_8)
+        {
+            tmp_8 = arr8_t[iee_8];
+            arr8_t[iee_8] = arr8_t[jee_8];
+            arr8_t[jee_8] = tmp_8;
+            iee_8++;
+            jee_8--;
+        }
+    };
+    if (left < jee_8) qSort_8t(arr8_t, left, jee_8);
+    if (iee_8 < right) qSort_8t(arr8_t, iee_8, right);
+
+};
+
+
+
 
 
 /// Быстрая сортировка 16_t, первыми мин значения

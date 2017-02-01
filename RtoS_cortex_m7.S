@@ -26,7 +26,7 @@
  .cpu cortex-m7
  .arch armv7e-m
  .thumb
- //.thumb_func
+ .thumb_func
 
 
  .equ   __Test_psp,0               // проверка на ошибки
@@ -205,8 +205,7 @@ __sDelay_new:       // ("r0") = Delay_mc +
             ldrb    r2, [r1, #13]           // mode_nomer
             str     r3, [r1, #16]           // сохранили точку сна
             bfc     r2, #6, #2
-            mov     r3, #128
-            add     r2, r2, r3
+            add     r2, r2, #128
             strb    r2, [r1, #13]           // mode 2 = delay
             mov     r3, #4                  // задачи сна
             b       __nil_1
@@ -217,8 +216,7 @@ __sTask_wait: // ("r0") = task_global_flag +
             ldr     r1, [r12]                // активная задача
             ldrb    r2, [r1, #13]           // mode_nomer
             bfc     r2, #6, #2
-            mov     r3, #64
-            add     r2, r2, r3
+            add     r2, r2, #64
             mov     r3, #1
             strb    r2, [r1, #13]           // mode 1 = wait
             str     r3, [r0]                // взвели флаг
@@ -264,8 +262,7 @@ __sTask_wake_1:
             str     r1, [r0, #4]            // хвост активной на новую задачу
             ldrb    r2, [r1, #13]           // mode_nomer
             bfc     r2, #6, #2
-            mov     r3, #192
-            add     r2, r2, r3
+            add     r2, r2, #192
             strb    r2, [r1, #13]           // mode_nomer 3 activ
             dsb
 __sTask_wake_exit:
@@ -332,8 +329,7 @@ __nil_exit:  // возврат из нити отложенных задач r7 - адрес размер
             str     r11, [r0, #4]            // хвост активной на новую
             ldrb    r2, [r11, #13]           // mode_nomer
             bfc     r2, #6, #2
-            mov     r3, #192
-            add     r2, r2, r3
+            add     r2, r2, #192
             strb    r2, [r11, #13]           // mode 3 = activ
             dsb
             bx      lr
@@ -452,7 +448,7 @@ __switch_step: // rx0 - новая задача. учёт времени
  .endif
 
 __switch_sDelay:                              // обслуживание задержки
-       //   ldr     r12, = sSystem_task      // адрес переменной с адресом активной задачи
+            ldr     r12, = sSystem_task      // адрес переменной с адресом активной задачи
             ldr     r2, [r12, #4]            // первая спящая задача
             cbz     r2, __switch_sDelay_exit
             ldr     r7, [r2, #4]            // хвост следующей не обработанной спящей
@@ -478,9 +474,8 @@ __switch_sDelay_next:
             str     r2, [r3, #4]            // хвост активной на новую
             ldrb    r8, [r2, #13]
             bfc     r8, #6, #2
-            mov     r9, #192
-            add     r8, r8, r9
-            strb    r8, [r11, #13]           // mode 3 = activ
+            add     r8, r8, #192
+            strb    r8, [r2, #13]           // mode 3 = activ
 __switch_sDelay_past:
             subs    r3, r7, r2
             itt     ne
@@ -489,7 +484,7 @@ __switch_sDelay_past:
 
 __switch_sDelay_exit:
 
-            isb
+            dsb
             ldr     r12, =__SysTick_CTRL
             ldr     r2, [r0, #8]            // читаем адрес стека
             ldmia   r2!, {r4-r11}           // читаем сохранённое
@@ -501,6 +496,7 @@ __switch_sDelay_exit:
             strh    r3, [r12]
             msr	    psp, r2                 // переписываем стек
             dsb
+            isb
             bx      lr
 
 
@@ -983,7 +979,7 @@ __memory_don1:
             ldr     r4, [r1, __STACK_Fx]    // [r0] *link_memory
             ldr     r2, [r4, #-4]           // там был адрес ссылки
             ldrh    r0, [r3, #12]           // читаем номер таска, Task unique ID ?
-         //   bfc     r0, #9, #7
+            bfc     r0, #9, #7
             bfc     r2, #23, #9             // размер
             orr     r2, r2, r0, lsl #23
             str     r2, [r4, #-4]           // новый хозяин
@@ -1000,9 +996,11 @@ __sTask_new_01: // новая задача флаг 6
                 // [r0]) void (*taskS_func()), [r1] task_size ,
                 // [r2] task_time_rate , [r4] char* const task_func_name
                 // [r5] task_func_massif4_data
-            ldr     r0, [r12, #64]
+            ldrex   r0, [r12, #64]
             bfc     r0, #0, #1
-            str     r0, [r12, #64]              // сброс флага доступности
+            strex   r1, r0, [r12, #64]          // сброс флага доступности
+            cmp     r1, #0
+            bne     __sTask_new_01
             ldrh    r0, [r12, #20]              // Количество тасков в системе task_list_zize_sys
             ldrh    r1, [r12, #22]              // Количество тасков в списке task_list_zize_use
             add     r0, r0, #1
@@ -1180,9 +1178,12 @@ __sTask_new_13:
             strh    r2, [r12, #20]              // Количество тасков в системе task_list_zize_sys
             mov     r3, #0x4                // __sTask_new 4 + __nil_exit
             svc     0x0
-            ldr     r2, [r12, #64]
-            add     r2, r2, #1
-            str     r2, [r12, #64]              // task_list доступен
+__sTask_new_14:
+            ldrex   r2, [r12, #64]
+            add     r3, r2, #1
+            strex   r4, r3, [r12, #64]              // task_list доступен
+            cmp     r4, #0
+            bne     __sTask_new_14
             b       sTask_nil_re
 
 
