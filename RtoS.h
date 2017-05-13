@@ -21,7 +21,7 @@
 //#define _bitFlag volatile uint32_t __attribute__ ((section(".flag"))) // так лучше
 
 
-#pragma pack(push, 4)
+//#pragma pack(push, 4)
 /// sSystem_task - формат банка
 struct S_task
 {
@@ -43,7 +43,7 @@ struct S_task
     __IO uint32_t spall_us;             ///#52- Дробный остаток
     __IO uint32_t norm_mc;              ///#56- Норма остатка (1mc)
     struct task** task_list;            ///#60- Список тасков
-    union  _fla                         ///#64- Набр кривых флагов
+    union  _fla                         ///#64- Набор кривых флагов
     {
         struct fl
         {
@@ -78,8 +78,11 @@ struct S_task
         } flag;
         uint32_t flag_all;
     }sustem_flag;
-}sSystem_task ={25,};
-#pragma pack(pop)
+    __IO uint32_t Random_register0;     ///#68- Ускоритель рандома0
+    __IO uint32_t Random_register1;     ///#72- Ускоритель рандома1
+    __IO uint32_t Random_register2;     ///#76- Ускоритель рандома2
+}sSystem_task = {22};
+//#pragma pack(pop)
 
 
 
@@ -311,6 +314,15 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     sSystem_task.tick_real = (__SYSHCLK / 1000);
     sSystem_task.norm_mc = (__SYSHCLK / 1000) - 6;
     sSystem_task.task_list_zize_sys = 2;
+    sSystem_task.Random_register0 = RTC->BKP0R;
+    sSystem_task.Random_register1 = RTC->BKP1R;
+    sSystem_task.Random_register2 = RTC->BKP2R;
+    if ((sSystem_task.Random_register0 == 0) | (sSystem_task.Random_register1 == 0) | (sSystem_task.Random_register2 == 0))
+    {
+        sSystem_task.Random_register0 = 0xADF48355;
+        sSystem_task.Random_register1 = 0x24353452;
+        sSystem_task.Random_register2 = 0x8667548A;
+    };
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
     #ifdef   __CM7_REV
     DWT->LAR = 0xC5ACCE55; //  разблокировать таймер DWT->CYCCNT для Cortex-M7
@@ -397,8 +409,8 @@ __attribute__( ( always_inline ) ) static inline void sTask_skip (void)
 /// Убить задачу - только внутри работающей задачи
 void __attribute__ ((weak)) sTask_kill(void);
 
-static uint32_t sRandom(uint32_t volatile Random_max,uint32_t volatile Random_min); //++
-uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
+static volatile uint32_t sRandom(uint32_t Random_max,uint32_t Random_min); //++
+volatile uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
 {
     register  uint32_t Random_max__     asm     ("r0") = Random_max;
     register  uint32_t Random_min__     asm     ("r1") = Random_min;
@@ -662,6 +674,21 @@ static inline uint8_t unit_step (uint32_t in)
 }
 
 
+
+void PVD_IRQHandler (void)
+{
+RTC->BKP0R = sSystem_task.Random_register0;
+RTC->BKP1R = sSystem_task.Random_register1;
+RTC->BKP2R = sSystem_task.Random_register2;
+PWR->CR1 &= ~PWR_CR1_DBP;     ///  защита записи  защищённого домена вкл
+QUADSPI->DLR = 1;
+QUADSPI->CCR = 0x01000101;
+QUADSPI->FCR = 0x1B;
+while(!(QUADSPI->SR & 0x04)); /// FTF flag  FIFO пуст -  =1
+QUADSPI->DR = 0xFFFF; /// младший байт первым
+while(!(QUADSPI->SR & 0x02)); /// Wait for TCF flag to be set - передача данных завершена =1
+while(1);
+};
 
 
 #endif /* _RtoS_ */

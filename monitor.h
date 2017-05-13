@@ -17,12 +17,11 @@
 
 #ifndef _monitor_
 
-#define buf_zize    (512)
+#define buf_zize    (127)
+uint8_t     _std_out_buffer[buf_zize];
+uint8_t     _std_in_buffer[buf_zize];
+uint8_t     m_mk_buf[buf_zize + 1];
 #pragma pack(push, 4)
-uint8_t  _std_out_buffer[buf_zize];
-uint8_t  _std_in_buffer[buf_zize];
-uint8_t m_mk_buf[buf_zize + 1];
-
 struct _stdout
 {
     const uint16_t              length;
@@ -147,15 +146,15 @@ while(Ltask_list_zize_sys != 0 )
         temp_buf = 59;
         m_mk_buf[temp_buf++] = '\n';
         m_mk_buf[temp_buf++] = 0;
-        monitor_print (m_mk_buf);
+        monitor_print (&m_mk_buf[0]);
     }
     temp_list++; Ltask_list_zize_sys--;
 }
 uint8_t shaize[12];
-monitor_print ("NVIC_size_max: "); monitor_print (_t32_char( sSystem_task.NVIC_size_max,shaize));
+monitor_print ("\nNVIC_size_max: "); monitor_print (_t32_char( sSystem_task.NVIC_size_max,shaize));
 monitor_print ("\nNVIC_size: "); monitor_print (_t32_char( sSystem_task.NVIC_size,shaize));
 monitor_print ("\nTime_ptint: "); monitor_print (_t32_char(time_tax2,shaize));
-monitor_print ("ms\n\t");
+monitor_print ("ms\n");
 while (_eb_monitor_stdout.tail != _eb_monitor_stdout.head ) sTask_skip();
 time_tax2 = sSystem_task.system_us - time_tax;
 sDelay_mc(3000);
