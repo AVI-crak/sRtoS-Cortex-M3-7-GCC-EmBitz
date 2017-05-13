@@ -116,12 +116,9 @@ __Enabling_FPU: // не понадобилась
 
  .align 2
 ___sRandom: // ("r0") = Random_max, ("r1") = Random_min
-            ldr     r3, =Random_register
-            ldmia   r3!, {r0-r2}           // читаем сохранённое
-            cmp     r0, #0
-            itt     eq
-            moveq   r0, #234
-            movteq  r0, #567
+            ldr     r12,  =sSystem_task
+            add     r12, r12, #68
+            ldmia   r12, {r0-r2}           // читаем сохранённое
             mov     r3, #48
 ___sRandom_1:
             sub     r3, r3, #1
@@ -132,8 +129,7 @@ ___sRandom_1:
             eor     r0, r2, r2, lsl#29
             cmp     r3, #0
             bne     ___sRandom_1
-            ldr     r3, =Random_register
-            stmia   r3!, {r0-r2}
+            stmia   r12, {r0-r2}
             tst     lr, #4
             ite     eq
             mrseq   r3, msp
@@ -148,6 +144,10 @@ ___sRandom_1:
             add     r0, r0, r2
             str     r0, [r3]
             bx      lr
+
+
+
+
 
 
  .align 2
