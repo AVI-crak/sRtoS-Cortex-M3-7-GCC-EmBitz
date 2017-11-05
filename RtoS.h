@@ -314,19 +314,26 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     sSystem_task.tick_real = (__SYSHCLK / 1000);
     sSystem_task.norm_mc = (__SYSHCLK / 1000) - 6;
     sSystem_task.task_list_zize_sys = 2;
+    #ifdef   __CM7_REV
+    DWT->LAR = 0xC5ACCE55; //  разблокировать таймер DWT->CYCCNT для Cortex-M7
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
     sSystem_task.Random_register0 = RTC->BKP0R;
     sSystem_task.Random_register1 = RTC->BKP1R;
     sSystem_task.Random_register2 = RTC->BKP2R;
+    #else
+    sSystem_task.Random_register0 = BKP->DR1;
+    sSystem_task.Random_register0 |= BKP->DR2 < 16;
+    sSystem_task.Random_register1 = BKP->DR3;
+    sSystem_task.Random_register1 |= BKP->DR4 < 16;
+    sSystem_task.Random_register2 = BKP->DR5;
+    sSystem_task.Random_register2 |= BKP->DR6 <16;
+    #endif
     if ((sSystem_task.Random_register0 == 0) | (sSystem_task.Random_register1 == 0) | (sSystem_task.Random_register2 == 0))
     {
         sSystem_task.Random_register0 = 0xADF48355;
         sSystem_task.Random_register1 = 0x24353452;
         sSystem_task.Random_register2 = 0x8667548A;
     };
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-    #ifdef   __CM7_REV
-    DWT->LAR = 0xC5ACCE55; //  разблокировать таймер DWT->CYCCNT для Cortex-M7
-    #endif
     DWT->CYCCNT =0;
     DWT->CTRL |=1; // enable the counter
     SCB->CCR |= SCB_CCR_USERSETMPEND_Msk;
@@ -677,16 +684,25 @@ static inline uint8_t unit_step (uint32_t in)
 
 void PVD_IRQHandler (void)
 {
+#ifdef   __CM7_REV
 RTC->BKP0R = sSystem_task.Random_register0;
 RTC->BKP1R = sSystem_task.Random_register1;
 RTC->BKP2R = sSystem_task.Random_register2;
-PWR->CR1 &= ~PWR_CR1_DBP;     ///  защита записи  защищённого домена вкл
 QUADSPI->DLR = 1;
 QUADSPI->CCR = 0x01000101;
 QUADSPI->FCR = 0x1B;
 while(!(QUADSPI->SR & 0x04)); /// FTF flag  FIFO пуст -  =1
 QUADSPI->DR = 0xFFFF; /// младший байт первым
 while(!(QUADSPI->SR & 0x02)); /// Wait for TCF flag to be set - передача данных завершена =1
+PWR->CR1 &= ~PWR_CR1_DBP;     ///  защита записи  защищённого домена вкл
+#else
+BKP->DR1 = sSystem_task.Random_register0;
+BKP->DR2 = sSystem_task.Random_register0 > 16;
+BKP->DR3 = sSystem_task.Random_register1;
+BKP->DR4 = sSystem_task.Random_register1 > 16;
+BKP->DR5 = sSystem_task.Random_register2;
+BKP->DR6 = sSystem_task.Random_register2 > 16;
+#endif
 while(1);
 };
 
