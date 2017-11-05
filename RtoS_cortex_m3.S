@@ -106,14 +106,11 @@ __malloc_in_0: // пусто
 
             bx      lr
 
- .align 3
+ .align 2
 ___sRandom: // ("r0") = Random_max, ("r1") = Random_min
-            ldr     r3, =Random_register
-            ldmia   r3!, {r0-r2}           // читаем сохранённое
-            cmp     r0, #0
-            itt     eq
-            moveq   r0, #234
-            movteq  r0, #567
+            ldr     r12,  =sSystem_task
+            add     r12, r12, #68 //s_Random_0
+            ldmia   r12, {r0-r2}           // читаем сохранённое
             mov     r3, #48
 ___sRandom_1:
             sub     r3, r3, #1
@@ -124,8 +121,7 @@ ___sRandom_1:
             eor     r0, r2, r2, lsl#29
             cmp     r3, #0
             bne     ___sRandom_1
-            ldr     r3, =Random_register
-            stmia   r3!, {r0-r2}
+            stmia   r12, {r0-r2}
             tst     lr, #4
             ite     eq
             mrseq   r3, msp
@@ -478,6 +474,7 @@ Start_task: // перемещение стеков +
             cpsid   i
             push    {r0, r1, r2, r3, R4, R5, lr}
             ldr     r0,  =sSystem_task
+            ldr     r1, =__SysTick_CTRL
             ldr     r1, [r1, #3320] //  Vector table offset register (VTOR)
             ldr     r1, [r1]        //вершина стека
             ldr     r2, [r0, #24]   // размер стека майна , booked stack address
