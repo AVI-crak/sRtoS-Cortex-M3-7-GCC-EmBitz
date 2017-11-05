@@ -478,11 +478,6 @@ Start_task: // перемещение стеков +
             cpsid   i
             push    {r0, r1, r2, r3, R4, R5, lr}
             ldr     r0,  =sSystem_task
-            ldr     r1, =__SysTick_CTRL
-            ldr     r3, [r0, #32]   // tick_real
-            str     r3, [r1, #4]    // SysTick->LOAD
-            mov     r2, #7
-            str     r2, [r1]        // запуск+прерывания+частота=1
             ldr     r1, [r1, #3320] //  Vector table offset register (VTOR)
             ldr     r1, [r1]        //вершина стека
             ldr     r2, [r0, #24]   // размер стека майна , booked stack address
@@ -575,6 +570,12 @@ _Start_task03:
             bfc     r1, #0, #4
             str     r1, [r5, #36]   //malloc_start - первый адрес malloc
             str     r1, [r5, #40]   //malloc_stop - последний адрес malloc
+            ldr     r0,  =sSystem_task
+            ldr     r1, =__SysTick_CTRL
+            ldr     r3, [r0, #32]   // tick_real
+            str     r3, [r1, #4]    // SysTick->LOAD
+            mov     r2, #7
+            str     r2, [r1]        // запуск+прерывания+частота=1
             mov     r1, #3
             cpsie    i
             msr	   CONTROL, r1
