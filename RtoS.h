@@ -47,34 +47,34 @@ struct S_task
     {
         struct fl
         {
-            uint32_t reliability_task_list:1;  /// обработка task_list, 1 - можно читать
-            uint32_t stop:5;
-            uint32_t a:1;
-            uint32_t b:1;
-            uint32_t c:1;
-            uint32_t d:1;
-            uint32_t e:1;
-            uint32_t f:1;
-            uint32_t g:1;
-            uint32_t h:1;
-            uint32_t i:1;
-            uint32_t j:1;
-            uint32_t k:1;
-            uint32_t l:1;
-            uint32_t m:1;
-            uint32_t n:1;
-            uint32_t o:1;
-            uint32_t p:1;
-            uint32_t q:1;
-            uint32_t r:1;
-            uint32_t s:1;
-            uint32_t t:1;
-            uint32_t u:1;
-            uint32_t v:1;
-            uint32_t w:1;
-            uint32_t x:1;
-            uint32_t y:1;
-            uint32_t z:1;
+            __IO uint32_t reliability_task_list:1;  /// обработка task_list, 1 - можно читать
+            __IO uint32_t stop:5;
+            __IO uint32_t a:1;
+            __IO uint32_t b:1;
+            __IO uint32_t c:1;
+            __IO uint32_t d:1;
+            __IO uint32_t e:1;
+            __IO uint32_t f:1;
+            __IO uint32_t g:1;
+            __IO uint32_t h:1;
+            __IO uint32_t i:1;
+            __IO uint32_t j:1;
+            __IO uint32_t k:1;
+            __IO uint32_t l:1;
+            __IO uint32_t m:1;
+            __IO uint32_t n:1;
+            __IO uint32_t o:1;
+            __IO uint32_t p:1;
+            __IO uint32_t q:1;
+            __IO uint32_t r:1;
+            __IO uint32_t s:1;
+            __IO uint32_t t:1;
+            __IO uint32_t u:1;
+            __IO uint32_t v:1;
+            __IO uint32_t w:1;
+            __IO uint32_t x:1;
+            __IO uint32_t y:1;
+            __IO uint32_t z:1;
         } flag;
         uint32_t flag_all;
     }sustem_flag;
@@ -388,6 +388,7 @@ void sTask_new (void (*taskS_func),
                         char* const task_func_name,
                         void* task_func_massif4_data  )
 {
+sSystem_task.sustem_flag.flag.reliability_task_list = 0;
 register void       *taskS_func__       asm     ("r0") = taskS_func;
 register uint32_t   task_size__         asm     ("r1") = task_size;
 if (task_time_rate >100) task_time_rate = 100;else;
@@ -401,6 +402,7 @@ sSystem_task.activ->flag = 6;
     asm volatile  ("svc    0x0             \n\t"  //
                   :: "r" (taskS_func__), "r" (task_size__), "r" (task_time_rate__),"r" (task_nil_in),
                      "r" (task_func_name__), "r" (func_massif4__) : "memory" );
+sSystem_task.sustem_flag.flag.reliability_task_list = 1;
 }
 
 
@@ -706,6 +708,26 @@ BKP->DR6 = sSystem_task.Random_register2 > 16;
 while(1);
 };
 
+
+
+char * _t32_char (uint32_t value, char *buffer)
+{
+   buffer += 11;
+   *--buffer = 0;
+   do
+   {
+      *--buffer = value % 10 + '0';
+      value /= 10;
+   }
+   while (value != 0);
+   return buffer;
+}
+
+__attribute__( ( always_inline ) ) static inline char * t32_char (uint32_t value)
+{
+   uint8_t buffer[12];
+   return _t32_char (value, buffer);
+}
 
 #endif /* _RtoS_ */
 #define _RtoS_

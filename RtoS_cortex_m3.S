@@ -603,6 +603,9 @@ __sTask_nil_Nane:
 sTask_kill: // +
             push    {r0, r1, r2, r3, lr }
             ldr     r3, = sSystem_task      // адрес переменной с адресом активной задачи
+            ldr     r2, [r3, #64]
+            bic     r2, r2, #1
+            str     r2, [r3, #64]           // task_list недоступен
             ldr     r2, [r3]                // читаем адрес исполняемого банка
             ldr     r1, =__Main_Name
             ldr     r0, [r2, #28]
@@ -909,6 +912,9 @@ __sTask_kill: //4
             bne     sTask_nil_re            // запуск цепочки
             mov     r3, #0x5                // __Delete_Task: // 5
             svc     0x0                     // __Delete_Task
+            ldr     r2, [r12, #64]
+            orr     r2, r2, #1
+            str     r2, [r12, #64]           // task_list доступен
             b       sTask_nil_re            // новый круг
 
 
