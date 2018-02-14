@@ -14,9 +14,11 @@
  репозиторий
  https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
 */
+#ifdef _RtoS_
+ extern "C" {
+#endif /* _RtoS_ */
 
-
-#ifndef _RtoS_
+//#ifndef _RtoS_
 
 //#define _bitFlag volatile uint32_t __attribute__ ((section(".flag"))) // так лучше
 
@@ -25,63 +27,63 @@
 /// sSystem_task - формат банка
 struct S_task
 {
-    struct task* activ;                 ///#00- Адрес активной задачи, Active task pointer
-    struct task* delay;                 ///#04- Адрес спящих задачь, Sleeping tsaks list pointer
-    struct task* wait;                  ///#08- Адрес задач ожидающих пинка, Waiting tasks list pointer
-    struct task* hold;                  ///#12- Адрес задач на обработку памяти, Tasks on hold list pointer
-    __IO uint16_t NVIC_size_max;        ///#16- Рабочий стек прерываний, Task maximum NVIC used stack
-    __IO uint16_t NVIC_size;            ///#18- Размер стека прерываний, Task NVIC stack size
-    __IO uint16_t task_list_zize_sys;   ///#20- Количество тасков в системе
-    __IO uint16_t task_list_zize_use;   ///#22- Количество тасков в списке
-    __IO uint32_t Booked_stack;         ///#24- Удачный стек, booked stack address
-    __IO uint32_t sSYSHCLK;             ///#28- Системная частота, гц - задается при старте
-    __IO uint32_t tick_real;            ///#32- Таймер активности задачи 100%, Task activity timer 100%
-    __IO uint32_t malloc_start;         ///#36- Первый адрес malloc, First malloc address
-    __IO uint32_t malloc_stop;          ///#40- Последний адрес malloc, Last malloc address
-    __I uint32_t task_stop;             ///#44- Последний адрес стека, Stack last address
-    __I uint32_t system_us;             ///#48- Системное время, System time counter
-    __IO uint32_t spall_us;             ///#52- Дробный остаток
-    __IO uint32_t norm_mc;              ///#56- Норма остатка (1mc)
-    struct task** task_list;            ///#60- Список тасков
-    union  _fla                         ///#64- Набор кривых флагов
+    struct task* activ;                     ///#00- Адрес активной задачи, Active task pointer
+    struct task* delay;                     ///#04- Адрес спящих задачь, Sleeping tsaks list pointer
+    struct task* wait;                      ///#08- Адрес задач ожидающих пинка, Waiting tasks list pointer
+    struct task* hold;                      ///#12- Адрес задач на обработку памяти, Tasks on hold list pointer
+    volatile uint16_t NVIC_size_max;        ///#16- Рабочий стек прерываний, Task maximum NVIC used stack
+    volatile uint16_t NVIC_size;            ///#18- Размер стека прерываний, Task NVIC stack size
+    volatile uint16_t task_list_zize_sys;   ///#20- Количество тасков в системе
+    volatile uint16_t task_list_zize_use;   ///#22- Количество тасков в списке
+    volatile uint32_t Booked_stack;         ///#24- Удачный стек, booked stack address
+    volatile uint32_t sSYSHCLK;             ///#28- Системная частота, гц - задается при старте
+    volatile uint32_t tick_real;            ///#32- Таймер активности задачи 100%, Task activity timer 100%
+    volatile uint32_t malloc_start;         ///#36- Первый адрес malloc, First malloc address
+    volatile uint32_t malloc_stop;          ///#40- Последний адрес malloc, Last malloc address
+    const volatile uint32_t task_stop;      ///#44- Последний адрес стека, Stack last address
+    const volatile uint32_t system_us;      ///#48- Системное время, System time counter
+    volatile uint32_t spall_us;             ///#52- Дробный остаток
+    volatile uint32_t norm_mc;              ///#56- Норма остатка (1mc)
+    struct task** task_list;                ///#60- Список тасков
+    union  _fla                             ///#64- Набор кривых флагов
     {
         struct fl
         {
-            __IO uint32_t reliability_task_list:1;  /// обработка task_list, 1 - можно читать
-            __IO uint32_t stop:5;
-            __IO uint32_t a:1;
-            __IO uint32_t b:1;
-            __IO uint32_t c:1;
-            __IO uint32_t d:1;
-            __IO uint32_t e:1;
-            __IO uint32_t f:1;
-            __IO uint32_t g:1;
-            __IO uint32_t h:1;
-            __IO uint32_t i:1;
-            __IO uint32_t j:1;
-            __IO uint32_t k:1;
-            __IO uint32_t l:1;
-            __IO uint32_t m:1;
-            __IO uint32_t n:1;
-            __IO uint32_t o:1;
-            __IO uint32_t p:1;
-            __IO uint32_t q:1;
-            __IO uint32_t r:1;
-            __IO uint32_t s:1;
-            __IO uint32_t t:1;
-            __IO uint32_t u:1;
-            __IO uint32_t v:1;
-            __IO uint32_t w:1;
-            __IO uint32_t x:1;
-            __IO uint32_t y:1;
-            __IO uint32_t z:1;
+            volatile uint32_t reliability_task_list:1;  /// обработка task_list, 1 - можно читать
+            volatile uint32_t stop:5;
+            volatile uint32_t a:1;
+            volatile uint32_t b:1;
+            volatile uint32_t c:1;
+            volatile uint32_t d:1;
+            volatile uint32_t e:1;
+            volatile uint32_t f:1;
+            volatile uint32_t g:1;
+            volatile uint32_t h:1;
+            volatile uint32_t i:1;
+            volatile uint32_t j:1;
+            volatile uint32_t k:1;
+            volatile uint32_t l:1;
+            volatile uint32_t m:1;
+            volatile uint32_t n:1;
+            volatile uint32_t o:1;
+            volatile uint32_t p:1;
+            volatile uint32_t q:1;
+            volatile uint32_t r:1;
+            volatile uint32_t s:1;
+            volatile uint32_t t:1;
+            volatile uint32_t u:1;
+            volatile uint32_t v:1;
+            volatile uint32_t w:1;
+            volatile uint32_t x:1;
+            volatile uint32_t y:1;
+            volatile uint32_t z:1;
         } flag;
         uint32_t flag_all;
     }sustem_flag;
-    __IO uint32_t Random_register0;     ///#68- Ускоритель рандома0
-    __IO uint32_t Random_register1;     ///#72- Ускоритель рандома1
-    __IO uint32_t Random_register2;     ///#76- Ускоритель рандома2
-}sSystem_task = {22};
+    volatile uint32_t Random_register0;     ///#68- Ускоритель рандома0
+    volatile uint32_t Random_register1;     ///#72- Ускоритель рандома1
+    volatile uint32_t Random_register2;     ///#76- Ускоритель рандома2
+}sSystem_task;
 //#pragma pack(pop)
 
 
@@ -89,15 +91,15 @@ struct S_task
 
 struct  task
 {
-    struct task*    task_new;           /// 0x00, #00  32b,- Адрес новой задачи, New task pointer
-    struct task*    task_lid;           /// 0x04, #04, 32b,- Адрес старой задачи, Old task pointer
+    struct task*    task_new;               /// 0x00, #00  32b,- Адрес новой задачи, New task pointer
+    struct task*    task_lid;               /// 0x04, #04, 32b,- Адрес старой задачи, Old task pointer
     volatile uint32_t   last_stack;         /// 0x08, #08, 32b,- Cтек задачи, Stack pointer
     union{
     struct _nomer
         {
-    const volatile uint16_t    task_nomer:9;       /// 0x0C, #12, 9b,- Номер таска, Task unique ID
+    const volatile uint16_t    task_nomer:9;    /// 0x0C, #12, 9b,- Номер таска, Task unique ID
     const volatile    uint16_t    fri:5;
-    const volatile uint16_t    mode:2;             /// 0x0C, #12, >>14 2b - Режим таска
+    const volatile uint16_t    mode:2;      /// 0x0C, #12, >>14 2b - Режим таска
         }m_n;
     volatile uint16_t    ntt;
     }mode_nomer;
@@ -106,17 +108,17 @@ struct  task
     union{
     struct _wake
         {
-    __IO uint8_t    delay;          /// 0x10, #16, 8b,- Задержка выполнения
-    __IO uint8_t    wake1;          /// 0x11, #17, 8b,- Первая в цепи
-    __IO uint8_t    wake2;          /// 0x12, #18, 8b,- Вторая в цепи
-    __IO uint8_t    wake3;          /// 0x13, #19, 8b,- Третья в цепи
+    volatile uint8_t    delay;              /// 0x10, #16, 8b,- Задержка выполнения
+    volatile uint8_t    wake1;              /// 0x11, #17, 8b,- Первая в цепи
+    volatile uint8_t    wake2;              /// 0x12, #18, 8b,- Вторая в цепи
+    volatile uint8_t    wake3;              /// 0x13, #19, 8b,- Третья в цепи
         }t_wake;
     volatile uint32_t   delay_wake;
     }d_wake;
     volatile uint32_t   life_time;          /// 0x14, #20, 32b,- Таймер активности задачи, Task activity timer
     volatile uint16_t   stack_zize;         /// 0x18, #24, 16b,- Размер стека, Task stack size
     volatile uint16_t   stack_max_zize;     /// 0x1A, #26, 16b,- Рабочий стек, Task maximum used stack
-    const volatile char*      task_names;         /// 0x1C, #28, 32b,- Имя задачи, Task name
+    const volatile char*    task_names;     /// 0x1C, #28, 32b,- Имя задачи, Task name
 };
 
 
@@ -157,7 +159,7 @@ activ = 3
 
 */
 
-
+ /*
 /// Отдать память другой нитке ( & link_memory, "task_func_name") (функция подтверждения)
 /// Release memory for another thread
 static void sTask_memory_donate (uint32_t *link_memory, char* const task_func_name)//X не готово
@@ -179,7 +181,7 @@ asm volatile  ( "svc    0xE                     \n\t"
                 :"r" (task_func_name):"memory");
 return malloc_adres;
 }
-
+*/
 
 /// Запрос ресурса, бесконечный цикл - пока не освободится
 /// Resource request, endless loop while resource not released
@@ -683,7 +685,7 @@ static inline uint8_t unit_step (uint32_t in)
 }
 
 
-
+/*
 void PVD_IRQHandler (void)
 {
 #ifdef   __CM7_REV
@@ -728,11 +730,23 @@ __attribute__( ( always_inline ) ) static inline char * t32_char (uint32_t value
    uint8_t buffer[12];
    return _t32_char (value, buffer);
 }
+*/
+/*
+Обратите внимание, что для ARM вы можете указать тип прерывания, которое нужно обработать, добавив необязательный параметр к атрибуту прерывания, например:
 
+          void f () __attribute__ ((прерывание («IRQ»)));
+
+Допустимыми значениями для этого параметра являются: IRQ, FIQ, SWI, ABORT и UNDEF.
+ */
+
+//#endif /* _RtoS_ */
+//#define _RtoS_
+
+
+#ifdef _RtoS_
+}
 #endif /* _RtoS_ */
 #define _RtoS_
-
-
 
 
 
