@@ -1,6 +1,6 @@
 
 ///HSE 16mgz
-// этот файл не является частью ОС, и должен быть изменён под текущий проект, или использован как шаблон.
+/// https://bitbucket.org/AVI-crak/system_f746/overview
 
 
 
@@ -84,12 +84,22 @@
 
 
 
-__attribute__( ( always_inline ) ) static inline void delay(volatile uint32_t time_tmp){time_tmp++; do {time_tmp--;} while ( time_tmp );}
+__attribute__( ( always_inline ) ) static inline void delay( uint32_t volatile time_tmp){do {time_tmp--;} while ( time_tmp );};
+
 void SystemInit (void)
 {
     volatile uint32_t tmp;
     volatile uint32_t timeout;
-    __set_CONTROL(0);
+  //  tmp = (.DB __MONTH__);
+
+
+
+
+  //  __set_CONTROL(0);
+    if (CONTROL_SPSEL_Msk & __get_CONTROL ())
+{// MSP не активен
+  __set_CONTROL (__get_CONTROL () & ~ CONTROL_SPSEL_Msk);
+}
 
     SCB->CPACR |= 15<<20; /// FPU settings
 
@@ -98,7 +108,7 @@ void SystemInit (void)
 
     MPU->RNR = 0;
     MPU->RBAR = 0x20000000;
-    MPU->RASR = 0x03060025; /// C=0, B=0, TEX=1, S=0, SRD=0, XN=0, AP=3, size=0x12 (512k)
+    MPU->RASR = 0x03090025; /// C=0, B=1, TEX=1, S=0, SRD=0, XN=0, AP=3, size=0x12 (512k)
     MPU->RNR = 1;
     MPU->RBAR = 0x08000001;
     MPU->RASR = 0x03020027; /// C=1, B=0, TEX=0, S=0, SRD=0, XN=0, AP=3, size=0x13 (1M)
@@ -126,43 +136,66 @@ void SystemInit (void)
 
 
 
-    RCC->APB1ENR |= RCC_APB1ENR_PWREN | RCC_APB1ENR_TIM3EN | RCC_APB1ENR_TIM7EN;
+    RCC->APB1ENR |= RCC_APB1ENR_PWREN ;
     RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
     RCC->AHB2ENR |= RCC_AHB2ENR_RNGEN;
     RNG->CR = RNG_CR_RNGEN;
 
-    RCC->AHB1ENR |=  RCC_AHB1ENR_DMA2DEN | RCC_AHB1ENR_DMA2EN | RCC_AHB1ENR_DMA1EN | RCC_AHB1ENR_BKPSRAMEN | 0x001007ff; /// GPIO ALL;
+    RCC->AHB1ENR |= RCC_AHB1ENR_DMA2DEN | RCC_AHB1ENR_DMA2EN | RCC_AHB1ENR_DMA1EN | RCC_AHB1ENR_BKPSRAMEN;
 
     RCC->AHB3ENR |= RCC_AHB3ENR_QSPIEN | RCC_AHB3ENR_FMCEN;
     RCC->AHB3RSTR = RCC_AHB3RSTR_QSPIRST | RCC_AHB3RSTR_FMCRST;
     RCC->AHB3RSTR = 0;
 
 /// RCC
-    delay(80000);
+ //   delay(80000);
 
     RCC->CR  = RCC_CR_HSION | RCC_CR_HSEON;
-    while((RCC->CR & RCC_CR_HSIRDY) != RCC_CR_HSIRDY);
-    while((RCC->CR & RCC_CR_HSERDY) != RCC_CR_HSERDY);
-    RCC->PLLCFGR =  RCC_PLLCFGR_PLLSRC_HSE  /// PLL SRC[22] Source Mux = HSE (1)
-                    | (12)                  /// PLL M[0] = 12
-                    | (324 <<6)             /// PLL N[6] = 324
-                    | (0 <<16)              /// PLL P[16] = 2 (00: PLLP = 2)
-                    | (9 <<24);             /// PLL Q[24] = 9
-    RCC->PLLSAICFGR = (252 <<6)             /// PLLSAI N[6] = 252
-                    | (3 <<28)              /// PLLSAI R[28] = 3
-                    | (3 <<16);              /// PLLSAI P[16] = 8
-    RCC->CR |=  RCC_CR_PLLSAION | RCC_CR_PLLON; /// вкл PLL
-    RCC->CFGR = (5 <<10)                    /// APB1[10] = 4 (101: AHB clock divided by 4)
-                | (4 <<13)                  /// APB2[13] = 2 (100: AHB clock divided by 2)
-                | (3 <<21)                  /// MCO1[21] = 11: PLL clock selected
-                | (7 <<26);                 /// MCO1PRE: MCO1[26] prescaler = 111: division by 5
+    while(! srRCC_CR_HSIRDY);
+    while(! srRCC_CR_HSERDY);
+
+    RCC->PLLCFGR =  swPLLCFGR_DIVM(12)          // Primary frequency divider 2-63
+                    |swPLLCFGR_PLLN(324)        // Clock multiplier for PLLCLK 50-432
+                    |swPLLCFGR_DIVP(2)          // The last divisor for PLLCLK 2,4,6,8
+                    |swPLLCFGR_DIVQ(9)          // Divisor for USB, SDMMC, and RNG 2-15
+                    |RCC_PLLCFGR_PLLSRC_HSE;    // 0x00000000U Clock from HSE
+
+    RCC->PLLSAICFGR = swPLLSAICFGR_PLLN(252)    // PLLN frequency multiplication PLLSAI 50-432
+                      |swPLLSAICFGR_DIVP(8)     // P division factor for USB,RNG,SDMMC(48MHz) 2,4,6,8
+                      |swPLLSAICFGR_DIVQ(15)    // Q division factor for SAI clock  2-15
+                      |swPLLSAICFGR_DIVR(3);    // R division factor for LCD clock  2-7
+
+    RCC->CR |=  RCC_CR_PLLSAION | RCC_CR_PLLON; // PLL enable
+    RCC->CFGR = sRCC_CFGR_HPRE_AHB.DIV1         // Divisor SYSCLK to HCLK
+                |sRCC_CFGR_PPRE1_APB1.DIV4      // Divisor HCLK to the 1 periphery
+                |sRCC_CFGR_PPRE2_APB2.DIV2      // Divisor HCLK to the 2 periphery
+                |swRCC_CFGR_RTCPRE_DIV_RTC(20)  // HSE division factor for RTC clock 2-31
+                |sRCC_CFGR_MCO1_OUT.PLLCLK      // Microcontroller clock output 1
+                |sRCC_CFGR_MCO1PRE.DIV5;        // MCO1 prescaler
+
+    RCC->DCKCFGR2 = sRCC_DCKCFGR2_USART1SEL.APB2        /// USART 1 clock source selection
+                   |sRCC_DCKCFGR2_I2C2SEL.APB1          /// I2C2 clock source selection
+                   |sRCC_DCKCFGR2_LPTIM1SEL.HSI        /// Low-power timer 1 clock source selection
+                   |sRCC_DCKCFGR2_CK48MSEL.PLLQ         /// 48MHz clock source selection
+                   |sRCC_DCKCFGR2_SDMMC1SEL.CK48MSEL;   /// SDMMC clock source selection
+
+
+
+__DMB();
     FLASH->ACR = 7                          /// Latency >210mg
                 | FLASH_ACR_ARTEN           /// вкл кеш флеша
                 | FLASH_ACR_PRFTEN;
-    while((RCC->CR & RCC_CR_PLLRDY) != RCC_CR_PLLRDY);
-    while((RCC->CR & RCC_CR_PLLSAIRDY) != RCC_CR_PLLSAIRDY);
-    RCC->CFGR |= 2;                         /// SW[0] 10: PLL selected as system clock
-    SCB_InvalidateICache();
+    while(! srRCC_CR_PLLRDY);
+    while(! srRCC_CR_PLLSAIRDY);
+
+    RCC->CFGR |= sRCC_CFGR_SW.PLL;              // PLL selected as system clock
+
+
+
+
+
+
+
     SCB_EnableICache();
     SCB_InvalidateDCache();
     SCB_EnableDCache();
@@ -192,91 +225,89 @@ RCC->CSR |= RCC_CSR_LSION; /// включаем внутренний генер�
 PWR->CSR1 |= PWR_CSR1_BRE;   /// вкл LP стаб на BKPSRAM
 while(!(PWR->CSR1 & PWR_CSR1_BRR));
 */
-if((RCC->BDCR & RCC_BDCR_LSERDY) /// кварц работал раньше
-   &&(((RCC->BDCR) & RCC_BDCR_RTCSEL ) == RCC_BDCR_RTCSEL_0) /// кварц работал на часы
-   &&((RCC->BDCR) & RCC_BDCR_RTCEN)) /// часы уже включенны
- goto batareika ;else;
 
-RCC->BDCR |= RCC_BDCR_BDRST;/// ресет модуля
-RCC->BDCR &= ~RCC_BDCR_BDRST;
-RCC->AHB1LPENR |= RCC_AHB1LPENR_BKPSRAMLPEN;
-PWR->CSR1 |= PWR_CSR1_BRE;   /// вкл LP стаб на BKPSRAM
-while(!(PWR->CSR1 & PWR_CSR1_BRR));
-RCC->BDCR |= RCC_BDCR_LSEDRV_0 | RCC_BDCR_RTCEN; /// вкл часового модуля
-RCC->BDCR |= RCC_BDCR_LSEON; /// включаем внешний кварц
-RCC->CSR |= RCC_CSR_LSION; /// включаем внутренний генератор 32Кгц
-for(tmp = 0x40024000; tmp < 0x40024FFC ; tmp +=4) // обнуление BKPSRAM
- {
-    *(__IO uint32_t*) tmp = 0x0;
-    delay(10);
- }
-for (tmp=6000000;tmp>1;tmp--)
-    {
-    if ((RCC->BDCR & RCC_BDCR_LSERDY) == RCC_BDCR_LSERDY)
-       {
-        RCC->BDCR |= RCC_BDCR_RTCSEL_0; /* переключаемся на внешний кварц */
-        break  ;
-       }else ;
-    }
-if (((RCC->BDCR) & RCC_BDCR_LSERDY) != RCC_BDCR_LSERDY)
- {
-   for (tmp=50000;tmp>1;tmp--)
-    {
-      if ((RCC->CSR & RCC_CSR_LSIRDY) == RCC_CSR_LSIRDY)
-         {
-           RCC->BDCR |= RCC_BDCR_RTCSEL_1; // переключаемся на внутренний генератор
-           break ;
-         }else;
-    };
- }else;
+
+if((RCC->BDCR & ( RCC_BDCR_LSERDY | sRCC_BDCR_RTCSEL.LSE | RCC_BDCR_RTCEN ))
+        ^ ( RCC_BDCR_LSERDY | sRCC_BDCR_RTCSEL.LSE | RCC_BDCR_RTCEN ))
+{  /// Сбой часового кварца, коммутатора кварца, часового модуля
+    RCC->BDCR = RCC_BDCR_BDRST;             /// ресет модуля
+    RCC->BDCR &= ~RCC_BDCR_BDRST;
+    RCC->AHB1LPENR |= RCC_AHB1LPENR_BKPSRAMLPEN;
+    PWR->CSR1 |= PWR_CSR1_BRE;              /// вкл LP стаб на BKPSRAM
+    while(!(PWR->CSR1 & PWR_CSR1_BRR));
+    RCC->BDCR |= RCC_BDCR_RTCEN             /// вкл часового модуля
+                |RCC_BDCR_LSEON             /// включаем внешний кварц
+                |swRCC_BDCR_LSEDRV(3);      /// Power LSE oscillator's drive capability. 0-3
+    RCC->CSR |= RCC_CSR_LSION;              /// включаем внутренний генератор 32Кгц
+    for(tmp = 0x40024000; tmp < 0x40024FFC ; tmp +=4) // обнуление BKPSRAM
+    { *(__IO uint32_t*) tmp = 0x0; delay(10);}
+    tmp = 33554432;
+    do { tmp--; }
+    while ( (srRCC_BDCR_LSERDY == 0) && ( tmp != 0) );
+    if ( tmp != 0) RCC->BDCR |= sRCC_BDCR_RTCSEL.LSE;
+        else RCC->BDCR |= sRCC_BDCR_RTCSEL.LSI;
 
 /// обновление даты и времени: год , месяц , день , день_недели , час , минуты , секунды
 ///                           year,  month,  day,  day_of_the_week,  hour,  minutes,  seconds);
-PWR->CR1 |= PWR_CR1_DBP;
-RTC->WPR = 0xCA;
-delay(1000);
-RTC->WPR = 0x53;
-delay(1000);
-RTC->ISR |= RTC_ISR_INIT;
-while(!(RTC->ISR & RTC_ISR_INITF));
-RTC->CR |= RTC_CR_BYPSHAD; /// чтение/запись без кеша
-RTC->PRER = 0x007F00FF; //0x007f00ff;
-delay(100);
-//RTC->CALR = ((0 <<15) /// CALP + 488.5 ppm
-//             |200);     ///  CALM[8:0] - 0.9537 ppm // +30 секунд в сутки
+    PWR->CR1 |= PWR_CR1_DBP;
+    RTC->WPR = 0xCA;
+    delay(1000);
+    RTC->WPR = 0x53;
+    delay(1000);
+    RTC->ISR |= RTC_ISR_INIT;
+    while(!(RTC->ISR & RTC_ISR_INITF));
+    RTC->CR |= RTC_CR_BYPSHAD; /// чтение/запись без кеша
+    RTC->PRER = 0x007F00FF; //0x007f00ff;
+    delay(100);
 
-RTC->DR = ( ((( 2015 /10) & 0x0f)<<20)                             // year - год 2015
-          | ((( 2015  - ((( 2015 /10) & 0x0f) *10)) & 0x0f) << 16) // year - год 2015
-          | (((5 /10) & 0x01)<<12)                                 // month - месяц 5
-          | ((( 5 - ((( 5 /10) & 0x01) *10)) & 0x0f) << 8)         // month месяц 5
-          | ((( 10 /10) & 0x03)<<4)                                // day день 10
-          | (( 10 - ((( 10 /10) & 0x03) *10)) & 0x0f)              // day день 10
-          | (( 7  & 0x07) << 13) );                                // day_of_the_week день недели 7
+    RTC->TR =   ((__TIME__[0]-'0') << 20)                           // hour 10
+                | ((__TIME__[1]-'0') << 16)                         // hour 1
+                | ((__TIME__[3]-'0') << 12)                         // minutes 10
+                | ((__TIME__[4]-'0') << 8)                          // minutes 1
+                | ((__TIME__[6]-'0') << 4)                          // seconds 10
+                | (__TIME__[7]-'0');                                // seconds 1
 
-RTC->TR = ( ((( 4 /10) & 0x03)<<20)                                // hour час 4
-          | ((( 4  - ((( 4 /10) & 0x03) *10)) & 0x0f)<<16)         // hour час 4
-          | ((( 20 /10) & 0x0f)<<12)                               // minutes - минуты 20
-          | ((( 20  - ((( 20 /10) & 0x0f) *10)) & 0x0f)<<8)        // minutes - минуты 20
-          | ((( 5 /10) & 0x0f)<<4)                                 // seconds секунды 5
-          | (( 5  - ((( 5 /10) & 0x0f) *10)) & 0x0f) );            // seconds секунды 5
-delay(100);
-RTC->ISR &= (~RTC_ISR_INIT); // закрываем доступ на запись регистрам часов реального времени
-RTC->WPR =0xEE;
-delay(1000);
-//PWR->CR1 &= (~ PWR_CR1_DBP);
+    RTC->DR = ((__DATE__[9]-'0') << 20)                             // year 10
+            | ((__DATE__[10]-'0') << 16)                            // year 1
+            | ((__TIMESTAMP__[2]=='e'?2:__TIMESTAMP__[2]=='d'?3 \
+            :__TIMESTAMP__[2]=='u'?4:__TIMESTAMP__[2]=='i'?5 \
+            :__TIMESTAMP__[2]=='t'?6:__TIMESTAMP__[0]=='M'?1:7) << 13)      // Week day
+            | ((((__DATE__[2]=='n'?(__DATE__[1]=='a'?0:5):__DATE__[2]=='b'?1 \
+            :__DATE__[2]=='r'?(__DATE__[0]=='M'?2:3):__DATE__[2]=='y'?4 \
+            :__DATE__[2]=='l'?6:__DATE__[2]=='g'?7:__DATE__[2]=='p'?8 \
+            :__DATE__[2] =='t'?9:__DATE__[2]=='v'?10:11)+1)/10) << 12)      // Month 10
+            | ((((__DATE__[2]=='n'?(__DATE__[1]=='a'?0:5):__DATE__[2]=='b'?1 \
+            :__DATE__[2]=='r'?(__DATE__[0]=='M'?2:3):__DATE__[2]=='y'?4 \
+            :__DATE__[2]=='l'?6:__DATE__[2]=='g'?7:__DATE__[2]=='p'?8 \
+            :__DATE__[2] =='t'?9:__DATE__[2]=='v'?10:11)+1)%10) << 8)       // Month 1
+            | ((__DATE__[4]==' ' ? 0 : __DATE__[4]-'0') << 4)               // day 10
+            | (__DATE__[5]-'0');                                            // day  1
 
 
-batareika :
-//PWR->CR1 &= (~ PWR_CR1_DBP);
+
+    delay(100);
+    RTC->ISR &= (~RTC_ISR_INIT); // закрываем доступ на запись регистрам часов реального времени
+    RTC->WPR =0xEE;
+    delay(1000);
+    //PWR->CR1 &= (~ PWR_CR1_DBP);
+
+
+
+
+//#define COMPILE_MONTH (__TIMESTAMP__[2]=='e'?2:__TIMESTAMP__[2]=='d'?3:__TIMESTAMP__[2]=='u'?4:__TIMESTAMP__[2]=='i'?5:__TIMESTAMP__[2]=='t'?6:__TIMESTAMP__[0]=='M'?1:7)
+
+
+
+}else;
 
 
 
 
 //delay(10000);
 
-//RCC->AHB1ENR |= 0x001007ff;              /// GPIO ALL
+RCC->AHB1ENR |= 0x001007ff;              /// GPIO ALL
 
-
+     /*
     GPIOA->MODER |= 0xa80200c3;
     GPIOA->OSPEEDR |= 0x0c030000;
     GPIOA->PUPDR |= 0x64000000;
@@ -304,6 +335,7 @@ batareika :
     GPIOE->AFR[0] |= 0xc550c5cc;
     GPIOE->AFR[1] |= 0xcccccccc;
 
+
     GPIOF->MODER |= 0xaa8aaaaa;
     GPIOF->OSPEEDR |= 0xffcfffff;
     GPIOF->PUPDR |= 0x55455555;
@@ -327,6 +359,7 @@ batareika :
     GPIOJ->PUPDR |= 0x00004000;
     GPIOJ->AFR[0] |= 0x00000000;
     GPIOJ->AFR[1] |= 0;
+    */
 
 
 
@@ -334,62 +367,83 @@ batareika :
 
 
 
-/*
-    GPIO_Inctall(GPIOH,5,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_sdnwe
-    GPIO_Inctall(GPIOF,11,OUT_AF12,PUII_PP_UP,F100Mgz); /// FMC_sdnras
-    GPIO_Inctall(GPIOH,3,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_sdne0
-    GPIO_Inctall(GPIOG,15,OUT_AF12,PUII_PP_UP,F100Mgz); /// FMC_sdncas
-    GPIO_Inctall(GPIOG,8,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_sdclk
-    GPIO_Inctall(GPIOH,2,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_sdcke0
-    GPIO_Inctall(GPIOE,1,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_nbl1
-    GPIO_Inctall(GPIOE,0,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_nbl0
-    GPIO_Inctall(GPIOD,10,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d15
-    GPIO_Inctall(GPIOD,9,OUT_AF12,PUII_PP_DO,F100Mgz);  /// FMC_d14
-    GPIO_Inctall(GPIOD,8,OUT_AF12,PUII_PP_DO,F100Mgz);  /// FMC_d13
-    GPIO_Inctall(GPIOE,15,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d12
-    GPIO_Inctall(GPIOE,14,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d11
-    GPIO_Inctall(GPIOE,13,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d10
-    GPIO_Inctall(GPIOE,12,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d9
-    GPIO_Inctall(GPIOE,11,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d8
-    GPIO_Inctall(GPIOE,10,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d7
-    GPIO_Inctall(GPIOE,9,OUT_AF12,PUII_PP_DO,F100Mgz);  /// FMC_d6
-    GPIO_Inctall(GPIOE,8,OUT_AF12,PUII_PP_DO,F100Mgz);  /// FMC_d5
-    GPIO_Inctall(GPIOE,7,OUT_AF12,PUII_PP_DO,F100Mgz);  /// FMC_d4
-    GPIO_Inctall(GPIOD,1,OUT_AF12,PUII_PP_DO,F100Mgz);  /// FMC_d3
-    GPIO_Inctall(GPIOD,0,OUT_AF12,PUII_PP_DO,F100Mgz);  /// FMC_d2
-    GPIO_Inctall(GPIOD,15,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d1
-    GPIO_Inctall(GPIOD,14,OUT_AF12,PUII_PP_DO,F100Mgz); /// FMC_d0
-    GPIO_Inctall(GPIOG,5,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_ba1
-    GPIO_Inctall(GPIOG,4,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_ba0
-    GPIO_Inctall(GPIOG,2,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a12
-    GPIO_Inctall(GPIOG,1,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a11
-    GPIO_Inctall(GPIOG,0,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a10
-    GPIO_Inctall(GPIOF,15,OUT_AF12,PUII_PP_UP,F100Mgz); /// FMC_a9
-    GPIO_Inctall(GPIOF,14,OUT_AF12,PUII_PP_UP,F100Mgz); /// FMC_a8
-    GPIO_Inctall(GPIOF,13,OUT_AF12,PUII_PP_UP,F100Mgz); /// FMC_a7
-    GPIO_Inctall(GPIOF,12,OUT_AF12,PUII_PP_UP,F100Mgz); /// FMC_a6
-    GPIO_Inctall(GPIOF,5,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a5
-    GPIO_Inctall(GPIOF,4,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a4
-    GPIO_Inctall(GPIOF,3,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a3
-    GPIO_Inctall(GPIOF,2,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a2
-    GPIO_Inctall(GPIOF,1,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a1
-    GPIO_Inctall(GPIOF,0,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a0
+    gpio_install (GPIOH, s_gpio_line.pin_05.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on );    /// FMC_sdnwe
+    gpio_install (GPIOF, s_gpio_line.pin_11.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_sdnras
+    gpio_install (GPIOH, s_gpio_line.pin_03.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_sdne0
+    gpio_install (GPIOG, s_gpio_line.pin_15.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_sdncas
+    gpio_install (GPIOG, s_gpio_line.pin_08.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_sdclk
+    gpio_install (GPIOH, s_gpio_line.pin_02.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_sdcke0
+    gpio_install (GPIOE, s_gpio_line.pin_01.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_nbl1
+    gpio_install (GPIOE, s_gpio_line.pin_00.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_nbl0
+    gpio_install (GPIOD, s_gpio_line.pin_10.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d15
+    gpio_install (GPIOD, s_gpio_line.pin_09.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d14
+    gpio_install (GPIOD, s_gpio_line.pin_08.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d13
+    gpio_install (GPIOE, s_gpio_line.pin_15.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d12
+    gpio_install (GPIOE, s_gpio_line.pin_14.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d11
+    gpio_install (GPIOE, s_gpio_line.pin_13.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d10
+    gpio_install (GPIOE, s_gpio_line.pin_12.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d9
+    gpio_install (GPIOE, s_gpio_line.pin_11.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d8
+    gpio_install (GPIOE, s_gpio_line.pin_10.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d7
+    gpio_install (GPIOE, s_gpio_line.pin_09.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d6
+    gpio_install (GPIOE, s_gpio_line.pin_08.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d5
+    gpio_install (GPIOE, s_gpio_line.pin_07.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d4
+    gpio_install (GPIOD, s_gpio_line.pin_01.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d3
+    gpio_install (GPIOD, s_gpio_line.pin_00.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d2
+    gpio_install (GPIOD, s_gpio_line.pin_15.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d1
+    gpio_install (GPIOD, s_gpio_line.pin_14.out_af_12.speed_100Mgz.pull_down.push_pull.lock_on);   /// FMC_d0
+    gpio_install (GPIOG, s_gpio_line.pin_05.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_ba1
+    gpio_install (GPIOG, s_gpio_line.pin_04.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_ba0
+    gpio_install (GPIOG, s_gpio_line.pin_02.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a12
+    gpio_install (GPIOG, s_gpio_line.pin_01.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a11
+    gpio_install (GPIOG, s_gpio_line.pin_00.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a10
+    gpio_install (GPIOF, s_gpio_line.pin_15.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a9
+    gpio_install (GPIOF, s_gpio_line.pin_14.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a8
+    gpio_install (GPIOF, s_gpio_line.pin_13.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a7
+    gpio_install (GPIOF, s_gpio_line.pin_12.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a6
+    gpio_install (GPIOF, s_gpio_line.pin_05.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a5
+    gpio_install (GPIOF, s_gpio_line.pin_04.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a4
+    gpio_install (GPIOF, s_gpio_line.pin_03.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a3
+    gpio_install (GPIOF, s_gpio_line.pin_02.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a2
+    gpio_install (GPIOF, s_gpio_line.pin_01.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a1
+    gpio_install (GPIOF, s_gpio_line.pin_00.out_af_12.speed_100Mgz.pull_of.push_pull.lock_on);     /// FMC_a0
 
-    GPIO_Inctall(GPIOD,5,OUT_AF12,PUII_PP_UP,F50Mgz);  /// FMC_nwe
-    GPIO_Inctall(GPIOD,4,OUT_AF12,PUII_PP_UP,F50Mgz);  /// FMC_noe
-    GPIO_Inctall(GPIOD,7,OUT_AF12,PUII_PP_UP,F50Mgz);  /// FMC_NE1
-    GPIO_Inctall(GPIOE,3,OUT_AF12,PUII_PP_UP,F100Mgz);  /// FMC_a19
+    gpio_install (GPIOD, s_gpio_line.pin_05.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_nwe
+    gpio_install (GPIOD, s_gpio_line.pin_04.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_noe
+    gpio_install (GPIOD, s_gpio_line.pin_07.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_NE1
+    gpio_install (GPIOE, s_gpio_line.pin_03.out_af_12.speed_100Mgz.pull_up.push_pull.lock_on);     /// FMC_a19
 
-    GPIO_Inctall(GPIOJ,7,INPUT,PUII_PP_UP,F2Mgz);       /// LCD_Fmark
-    GPIO_Inctall(GPIOJ,8,OUT_PP,PUII_PP_OFF,F100Mgz);   /// LCD_Reset
-*/
+    gpio_install (GPIOJ, s_gpio_line.pin_07.inprit.pull_up.lock_on);                               /// LCD_Fmark
+    gpio_install (GPIOJ, s_gpio_line.pin_08.out.speed_010Mgz.pull_up.push_pull.lock_on);           /// LCD_Reset
+
+          /// SPI4
+    gpio_install (GPIOE, s_gpio_line.pin_02.out_af_05.speed_100Mgz.pull_up.push_pull.lock_on);    /// spi4_sck
+    gpio_install (GPIOE, s_gpio_line.pin_04.out.speed_100Mgz.pull_up.push_pull.lock_on);          /// spi4_nss
+    gpio_install (GPIOE, s_gpio_line.pin_05.out_af_05.speed_100Mgz.pull_up.push_pull.lock_on);    /// spi4-mo
+    gpio_install (GPIOE, s_gpio_line.pin_06.out_af_05.speed_100Mgz.pull_up.push_pull.lock_on);    /// spi4_mi
+    gpio_install (GPIOA, s_gpio_line.pin_00.analog.pull_of.lock_on);                              /// adc1-0 - PA0. 43
+    gpio_install (GPIOA, s_gpio_line.pin_03.analog.pull_of.lock_on);                              /// adc2-2 - PA3. 50
+    gpio_install (GPIOC, s_gpio_line.pin_03.analog.pull_of.lock_on);                              /// adc3-13 - PC3. 38
+
+
+
+    gpio_install (GPIOC, s_gpio_line.pin_13.out.speed_100Mgz.pull_of.push_pull.lock_on);            /// светик
+    gpio_install (GPIOA, s_gpio_line.pin_08.out_af_00.speed_100Mgz.pull_of.push_pull.lock_of);      /// 40mg  out pin
+
+        /// TIM3
+
+    gpio_install (GPIOC, s_gpio_line.pin_06.out_af_02.speed_100Mgz.pull_of.push_pull.lock_on);      /// TIM3_CH1
+    gpio_install (GPIOC, s_gpio_line.pin_07.out_af_02.speed_100Mgz.pull_of.push_pull.lock_on);      /// TIM3_CH2
+    gpio_install (GPIOB, s_gpio_line.pin_00.out_af_02.speed_100Mgz.pull_of.push_pull.lock_on);      /// TIM3_CH3
+    gpio_install (GPIOB, s_gpio_line.pin_01.out_af_02.speed_100Mgz.pull_of.push_pull.lock_on);      /// TIM3_CH4
+
+
 
 /// Инсталл FMC 1 SRAM NE1 + SDRAM
 
     /// SRAM1
     FMC_Bank1E->BWTR[0] = ( (0 <<28)            /// ACCMOD
                           | (0 << 24)          /// DATLAT задержка выдачи данных
-                          | (7 <<16)            /// BUSTURN время свободной шины после записи /7
+                          | (3 <<16)            /// BUSTURN время свободной шины после записи /7
                           | (3 <<8)            /// DATAST время записи данных /30
                           | (0 <<4)            /// ADDHLD заморозка адреса
                           | 5);                 /// ADDSET время установки адреса /9
@@ -470,19 +524,9 @@ delay(100000);
 
   FMC_Bank5_6->SDCR[0] &= (~FMC_SDCR1_WP);// снятие защиты от записи
   timeout =0;
-  for(tmp = 0xc0000000; tmp < 0xC3FFFFFC ; tmp += 4) ///64Mb 0.873 ms
-  {
-      *((volatile uint32_t *)tmp) = 0; //timeout +=9;
-  }
-/*
-  timeout =0;
-  for(tmp = 0xc0000000; tmp < 0xC3FFFFFC ; tmp += 4) ///32Mb 0.873 ms
-  {
-     if (( *((volatile uint32_t *)tmp)) != timeout ) tmp = 0xfffffff0;
-      timeout +=9;
-  }
-*/
 
+  uint32_t tmp3 = 0xc0000000;
+  do{*((uint32_t *)tmp3++) = 0;} while(tmp3 != 0xC3FFFFFC);
 
 
 
@@ -492,9 +536,8 @@ delay(100000);
 
 ///---------------------
 /// запуск spi 25q64
-/// после иницилизации внешняя флеш память будет вулючена в адресное пространство мк
 
-/*
+
 
     GPIOB->MODER |= 0x00002020;
     GPIOB->OSPEEDR |= 0x00003030;
@@ -511,7 +554,7 @@ delay(100000);
     GPIOF->LCKR = 0x000103C0;
     GPIOF->LCKR = 0x000003C0;
     GPIOF->LCKR = 0x000103C0;
-*/
+
 
     QUADSPI->DCR = (22 <<16)    /// FSIZE[16]: Flash memory size количество адресных линий (23 = 8mb)-1
                 | (0 <<8)       /// CSHT[8]: Chip select high time удержание активности чипа
@@ -628,10 +671,10 @@ delay(50);
     delay(50);
 
 
-//RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 
     ///Запуск таймера TIM3 для датчика растояния SR04
-   TIM3->PSC = 165 ;
+   TIM3->PSC = 82 ;
    TIM3->CR1 |= TIM_CR1_ARPE;
    TIM3->CCMR1 |= TIM_CCMR1_OC2PE;
    TIM3->CCMR1 |= TIM_CCMR1_CC1S_0 | TIM_CCMR1_IC2F_1; //TI1FP1+фильтр
@@ -640,9 +683,9 @@ delay(50);
    TIM3->CCMR2 |= (TIM_CCMR2_OC4M_2|TIM_CCMR2_OC4M_1);
    TIM3->ARR =65534 ;
    TIM3->CCR1 = 0;
-   TIM3->CCR2 = 65400 ;
-   TIM3->CCR3 = 10;
-   TIM3->CCR4 = 10 ;
+   TIM3->CCR2 = 52366 ;
+   TIM3->CCR3 = 13170;
+   TIM3->CCR4 = 13170 ;
    TIM3->SMCR = (5<<4) | 4; //TI1FP1+Reset Mode
    TIM3->CCER |= (TIM_CCER_CC1E | TIM_CCER_CC1P |TIM_CCER_CC2E|TIM_CCER_CC2P);
    TIM3->BDTR |= TIM_BDTR_MOE;
@@ -651,7 +694,7 @@ delay(50);
    NVIC_SetPriority(TIM3_IRQn, 14);
    NVIC_EnableIRQ(TIM3_IRQn); // разрешение прерывания
 
-  //  RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM7EN;
  //Инициализация таймера TIM7
    TIM7->PSC =1;
    TIM7->CR1 |= TIM_CR1_ARPE;
@@ -662,228 +705,20 @@ delay(50);
 
 
 
-};
-
-
-///---------------------------------------------
-/// DMA 1-2
-
-
-/*
-Available for STM32F42xxx and STM32F43xxx.
-___________________________________________________________________________________________________________________
- DMA1     | Stream 0    | Stream 1  | Stream 2    | Stream 3    | Stream 4   | Stream 5    | Stream 6  | Stream 7  |
-----------|-------------|-----------|-------------|-------------|------------|-------------|-----------|-----------|
-Channel 0 | SPI3_RX     |           | SPI3_RX     | SPI2_RX     | SPI2_TX    | SPI3_TX     |           | SPI3_TX   |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 1 | I2C1_RX     |           | TIM7_UP     |             | TIM7_UP    | I2C1_RX     | I2C1_TX   | I2C1_TX   |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 2 | TIM4_CH1    |           | I2S3_EXT_RX | TIM4_CH2    | I2S_EXT_TX | I2S3_EXT_TX |  TIM4_UP  | TIM4_CH3  |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 3 | I2S3_EXT_RX | TIM2_UP   | I2C3_RX     | I2S2_EXT_RX | I2C3_TX    | TIM2_CH1    | TIM2_CH2  | TIM2_UP   |
-          |             | TIM2_CH3  |             |             |            |             | TIM2_CH4  | TIM2_CH4  |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 4 | UART5_RX    | USART3_RX | UART4_RX    | USART3_TX   | UART4_TX   | USART2_RX   | USART2_TX | UART5_TX  |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 5 | UART8_TX    | UART7_TX  | TIM3_CH4    | UART4_RX    | TIM3_CH1   | TIM3_CH2    | UART8_RX  | TIM3_CH3  |
-          |             |           | TIM3_UP     |             | TIM3_TRIG  |             |           |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 6 | TIM5_CH3    | TIM5_CH4  | TIM5_CH1    | TIM5_CH4    | TIM5_CH2   |             | TIM5_UP   |           |
-          | TIM5_UP     | TIM5_TRIG |             | TIM5_TRIG   |            |             |           |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 7 |             | TIM6_UP   | I2C2_RX     | I2C2_RX     | USART3_TX  | DAC1        | DAC2      | I2C2_TX   |
-----------|-------------|-----------|-------------|-------------|------------|-------------|-----------|---------- |
-
-___________________________________________________________________________________________________________________
- DMA2     | Stream 0    | Stream 1  | Stream 2    | Stream 3    | Stream 4   | Stream 5    | Stream 6  | Stream 7  |
-----------|-------------|-----------|-------------|-------------|------------|-------------|-----------|-----------|
-Channel 0 | ADC1        | SA1_A     | TIM8_CH1    | SAI1_A      | ADC1       | SAI1_B      | TIM1_CH1  |           |
-          |             |           | TIM8_CH2    |             |            |             | TIM1_CH2  |           |
-          |             |           | TIM8_CH3    |             |            |             | TIM1_CH3  |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 1 |             | DCMI      | ADC2        | ADC2        | SAI1_B     | SPI6_TX     | SPI6_RX   | DCMI      |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 2 | ADC3        | ADC3      |             | SPI5_RX     | SPI5_TX    | CRYP_OUT    | CRYP_IN   | HASH_IN   |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 3 | SPI1_RX     |           | SPI1_RX     | SPI1_TX     |            | SPI1_TX     |           |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 4 | SPI4_RX     | SPI4_TX   | USART1_RX   | SDIO        |            | USART1_RX   | SDIO      | USART1_TX |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 5 |             | USART2_RX | USART6_RX   | SPI4_RX     | SPI4_TX    |             | USART6_TX | USART6_RX |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 6 | TIM1_TRIG   | TIM1_CH1  | TIM1_CH2    | TIM1_CH1    | TIM1_CH4   | TIM1_UP     | TIM1_CH3  |           |
-          |             |           |             |             | TIM1_TRIG  |             |           |           |
-          |             |           |             |             | TIM1_COM   |             |           |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 7 |             | TIM8_UP   | TIM8_CH1    | TIM8_CH2    | TIM8_CH3   | SPI5_RX     | SPI5_TX   | TIM8_CH4  |
-          |             |           |             |             |            |             |           | TIM8_TRIG |
-          |             |           |             |             |            |             |           | TIM8_COM  |
-----------|-------------|-----------|-------------|-------------|------------|-------------|-----------|------------
-*/
-
-/*
-Available for stm32f746xx.
-___________________________________________________________________________________________________________________
- DMA1     | Stream 0    | Stream 1  | Stream 2    | Stream 3    | Stream 4   | Stream 5    | Stream 6  | Stream 7  |
-----------|-------------|-----------|-------------|-------------|------------|-------------|-----------|-----------|
-Channel 0 | SPI3_RX     |SPDIFRX_DT | SPI3_RX     | SPI2_RX     | SPI2_TX    | SPI3_TX     |SPDIFRX_CS | SPI3_TX   |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 1 | I2C1_RX     | I2C3_RX   | TIM7_UP     |             | TIM7_UP    | I2C1_RX     | I2C1_TX   | I2C1_TX   |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 2 | TIM4_CH1    |           |  I2C4 _RX   | TIM4_CH2    |            |  I2C4 _TX   |  TIM4_UP  | TIM4_CH3  |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 3 |             | TIM2_UP   | I2C3_RX     |             | I2C3_TX    | TIM2_CH1    | TIM2_CH2  | TIM2_UP   |
-          |             | TIM2_CH3  |             |             |            |             | TIM2_CH4  | TIM2_CH4  |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 4 | UART5_RX    | USART3_RX | UART4_RX    | USART3_TX   | UART4_TX   | USART2_RX   | USART2_TX | UART5_TX  |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 5 | UART8_TX    | UART7_TX  | TIM3_CH4    | UART7_RX    | TIM3_CH1   | TIM3_CH2    | UART8_RX  | TIM3_CH3  |
-          |             |           | TIM3_UP     |             | TIM3_TRIG  |             |           |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 6 | TIM5_CH3    | TIM5_CH4  | TIM5_CH1    | TIM5_CH4    | TIM5_CH2   |             | TIM5_UP   |           |
-          | TIM5_UP     | TIM5_TRIG |             | TIM5_TRIG   |            |             |           |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 7 |             | TIM6_UP   | I2C2_RX     | I2C2_RX     | USART3_TX  | DAC1        | DAC2      | I2C2_TX   |
-----------|-------------|-----------|-------------|-------------|------------|-------------|-----------|---------- |
-
-___________________________________________________________________________________________________________________
- DMA2     | Stream 0    | Stream 1  | Stream 2    | Stream 3    | Stream 4   | Stream 5    | Stream 6  | Stream 7  |
-----------|-------------|-----------|-------------|-------------|------------|-------------|-----------|-----------|
-Channel 0 | ADC1        | SA1_A     | TIM8_CH1    | SAI1_A      | ADC1       | SAI1_B      | TIM1_CH1  |  SAI2_B   |
-          |             |           | TIM8_CH2    |             |            |             | TIM1_CH2  |           |
-          |             |           | TIM8_CH3    |             |            |             | TIM1_CH3  |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 1 |             | DCMI      | ADC2        | ADC2        | SAI1_B     | SPI6_TX     | SPI6_RX   | DCMI      |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 2 | ADC3        | ADC3      |             | SPI5_RX     | SPI5_TX    | CRYP_OUT    | CRYP_IN   | HASH_IN   |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 3 | SPI1_RX     |           | SPI1_RX     | SPI1_TX     |  SAI2_A    | SPI1_TX     |  SAI2_B   | QUADSPI   |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 4 | SPI4_RX     | SPI4_TX   | USART1_RX   | SDMMC1      |            | USART1_RX   | SDMMC1    | USART1_TX |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 5 |             | USART6_RX | USART6_RX   | SPI4_RX     | SPI4_TX    |             | USART6_TX | USART6_TX |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 6 | TIM1_TRIG   | TIM1_CH1  | TIM1_CH2    | TIM1_CH1    | TIM1_CH4   | TIM1_UP     | TIM1_CH3  |           |
-          |             |           |             |             | TIM1_TRIG  |             |           |           |
-          |             |           |             |             | TIM1_COM   |             |           |           |
-==========|=============|===========|=============|=============|============|=============|===========|===========|
-Channel 7 |             | TIM8_UP   | TIM8_CH1    | TIM8_CH2    | TIM8_CH3   | SPI5_RX     | SPI5_TX   | TIM8_CH4  |
-          |             |           |             |             |            |             |           | TIM8_TRIG |
-          |             |           |             |             |            |             |           | TIM8_COM  |
-----------|-------------|-----------|-------------|-------------|------------|-------------|-----------|------------
-*/
-
-/*
-//#pragma pack(push, 4)
-ALCD static struct
-{
-  //  volatile uint16_t nc;
-    volatile uint16_t reg;
-    volatile uint16_t data;
-
-}lcd; /// FMC_A19  LCD_RS
-//#pragma pack(pop)
-
-
-
-//#define LCD           ((LCD_TypeDef *) 0x60000000)
-
-#define F2Mgz                 ((uint32_t) 0x00)
-#define F10Mgz                ((uint32_t) 0x00000001)
-#define F50Mgz                ((uint32_t) 0x00000002)
-#define F100Mgz               ((uint32_t) 0x00000003)
-
-#define PUII_PP_OFF          ((uint32_t) 0x00000000)
-#define PUII_PP_UP           ((uint32_t) 0x00000001)
-#define PUII_PP_DO           ((uint32_t) 0x00000002)
-#define PUII_OD_OFF          ((uint32_t) 0x00000010)
-#define PUII_OD_UP           ((uint32_t) 0x00000011)
-#define PUII_OD_DO           ((uint32_t) 0x00000012)
-
-#define INPUT                ((uint32_t) 0x00000000)
-#define OUT_PP               ((uint32_t) 0x00000001)
-#define ANALOG               ((uint32_t) 0x00000003)
-#define OUT_AF0              ((uint32_t) 0x00000002)
-#define OUT_AF1              ((uint32_t) 0x00000012)
-#define OUT_AF2              ((uint32_t) 0x00000022)
-#define OUT_AF3              ((uint32_t) 0x00000032)
-#define OUT_AF4              ((uint32_t) 0x00000042)
-#define OUT_AF5              ((uint32_t) 0x00000052)
-#define OUT_AF6              ((uint32_t) 0x00000062)
-#define OUT_AF7              ((uint32_t) 0x00000072)
-#define OUT_AF8              ((uint32_t) 0x00000082)
-#define OUT_AF9              ((uint32_t) 0x00000092)
-#define OUT_AF10             ((uint32_t) 0x000000A2)
-#define OUT_AF11             ((uint32_t) 0x000000B2)
-#define OUT_AF12             ((uint32_t) 0x000000C2)
-#define OUT_AF13             ((uint32_t) 0x000000D2)
-#define OUT_AF14             ((uint32_t) 0x000000E2)
-#define OUT_AF15             ((uint32_t) 0x000000F2)
-
-#define RGB_out(Pr,Pg,Pb)   ((int16_t) (((Pr >> 3) << 11) | ((Pg >> 2) << 5) | (Pb >> 3)))
-#define RGB(Pr,Pg,Pb)   ((int16_t) (((Pr & 31) << 11) | ((Pg & 63) << 5) | (Pb & 31)))
-
-//static void Delay (volatile uint32_t time_tmp);
-//__attribute__( ( always_inline ) ) static inline
-__attribute__( ( always_inline ) ) static inline void Delay(volatile uint32_t time_tmp){time_tmp++; do {time_tmp--;} while ( time_tmp );}
-
-
-
-/// GPIO_Inctall (GPIOE,0,OUT_PP,PUII_PP_OFF,F50Mgz)
-///- настройка ножек (порт, номер ноги, тип входа-выхода, режим выхлопа, чатота выхлопа
-void GPIO_Inctall (GPIO_TypeDef* GPIOx,uint16_t PIN,uint16_t RMODE,uint16_t RPUII,uint16_t RF);
-void GPIO_Inctall (GPIO_TypeDef* GPIOx,uint16_t PIN,uint16_t RMODE,uint16_t RPUII,uint16_t RF)
-{
-    GPIOx->MODER &= (~( 0x00000003<<(PIN*2)));
-    GPIOx->MODER |= (( uint32_t) (RMODE & 0x0000000F)<<(PIN*2));
-    GPIOx->OTYPER &= (~(0x00000001 << PIN));
-    GPIOx->OTYPER |= ((uint32_t) ((RPUII)>>4)<<PIN);
-    GPIOx->PUPDR &= ~(( uint32_t) 0x00000003 << (PIN*2));
-    GPIOx->PUPDR |= (( uint32_t) (RPUII & 0x00000003)<<(PIN*2));
-    GPIOx->OSPEEDR &= (~((uint32_t)(0x00000003)<<((PIN)*2)));
-    GPIOx->OSPEEDR |= ((uint32_t)(RF)<<((PIN)*2));
-    if (((RMODE)&0x000F)!= 0x0002) return ; else;
-    if ((PIN) < 8)
-    {
-    	GPIOx->AFR[0] &= (~((uint32_t)0x0000000F<<(PIN*4)));
-        GPIOx->AFR[0] |= (uint32_t)(RMODE>>4)<<(PIN*4);
-    }else
-    {
-        GPIOx->AFR[1] &= (~((uint32_t)0x0000000F<<((PIN-8)*4)));
-        GPIOx->AFR[1] |= ((uint32_t)(RMODE>>4)<<((PIN-8)*4));
-    };
 }
 
-/// обновление даты и времени: год , месяц ,  день , день_недели , час , минуты ,  секунды
-static void RTC_Update_Data (uint8_t year,uint8_t month,uint8_t day,uint8_t day_of_the_week,uint8_t hour,uint8_t minutes,uint8_t seconds);
-void RTC_Update_Data (uint8_t year,uint8_t month,uint8_t day,uint8_t day_of_the_week,uint8_t hour,uint8_t minutes,uint8_t seconds)
+
+
+void PVD_IRQHandler (void)
 {
-RTC->WPR = 0xCA;
-Delay(1000);
-RTC->WPR = 0x53;
-Delay(1000);
-RTC->ISR |= RTC_ISR_INIT;
-while(!(RTC->ISR & RTC_ISR_INITF)) {}
-RTC->PRER = 0x007f00ff;
-uint32_t tmp;
-tmp  = (((year/10) & 0x0f)<<20);
-tmp |= (((year - (((year/10) & 0x0f) *10)) & 0x0f) << 16);
-tmp |= (((month/10) & 0x01)<<12);
-tmp |= (((month - (((month/10) & 0x01) *10)) & 0x0f) << 8);
-tmp |= (((day/10) & 0x03)<<4);
-tmp |= ((day - (((day/10) & 0x03) *10)) & 0x0f);
-tmp |= ((day_of_the_week & 0x07) << 13);
-RTC->DR = tmp;
-tmp  = (((hour/10) & 0x03)<<20);
-tmp |= (((hour - (((hour/10) & 0x03) *10)) & 0x0f)<<16);
-tmp |= (((minutes/10) & 0x0f)<<12);
-tmp |= (((minutes - (((minutes/10) & 0x0f) *10)) & 0x0f)<<8);
-tmp |= (((seconds/10) & 0x0f)<<4);
-tmp |= ((seconds - (((seconds/10) & 0x0f) *10)) & 0x0f);
-RTC->TR = tmp;
-RTC->ISR &= (~RTC_ISR_INIT);
-RTC->WPR =0xEE;
-Delay(1000);
+PWR->CR1 &= ~PWR_CR1_DBP;     ///  защита записи  защищённого домена вкл
+
+QUADSPI->DLR = 1;
+QUADSPI->CCR = 0x01000101;
+QUADSPI->FCR = 0x1B;
+while(!(QUADSPI->SR & 0x04)); /// FTF flag  FIFO пуст -  =1
+QUADSPI->DR = 0xFFFF; /// младший байт первым
+while(!(QUADSPI->SR & 0x02)); /// Wait for TCF flag to be set - передача данных завершена =1
+while(1);
 }
 
- */
