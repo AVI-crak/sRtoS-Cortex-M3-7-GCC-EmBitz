@@ -56,14 +56,18 @@ void monitor_fining (void)
     }while (tmp != buf_zize);
 };
 
+volatile uint32_t monitor_timtemp = 0;
 
  /// печать строки
 void monitor_print (uint8_t* text)
 {
+
+    if (monitor_timtemp == ((uint32_t) 0-1)) return; else;
     uint16_t temp_t = 0;
     if (text[temp_t] == '\0') return;
     uint16_t temp_h = _eb_monitor_stdout.head;
     uint16_t temp_l;
+
     do
     {
         temp_l = temp_h; temp_h++;
@@ -72,12 +76,22 @@ void monitor_print (uint8_t* text)
         else
         {
             _eb_monitor_stdout.head = temp_l;
-            while (_eb_monitor_stdout.tail != temp_l ) sTask_skip();// Delay(1000);// там занято
+            while (_eb_monitor_stdout.tail != temp_l )
+            {
+                if (monitor_timtemp == 0) monitor_timtemp = sSystem_task.system_us + 1000; else;
+                if (monitor_timtemp < sSystem_task.system_us)
+                {
+                   monitor_timtemp = (uint32_t) 0-1;
+                   return;
+                }else sTask_skip();// Delay(1000);// там занято
+            };
             _eb_monitor_stdout.ptr[temp_h] = text[temp_t++];
             _eb_monitor_stdout.head = temp_h;
         }
     }while (text[temp_t] != '\0') ;
-    _eb_monitor_stdout.head = temp_h; __DSB();
+    _eb_monitor_stdout.head = temp_h;
+    monitor_timtemp = 0;
+    __DSB();
 };
 
 uint8_t *monitor_scan (void)
@@ -97,6 +111,7 @@ uint8_t *monitor_scan (void)
                     m_ms_buf[--temp_x] = 0; _eb_monitor_stdin.tail = temp_l;
                 } else m_ms_buf[0] = 0;
         } else m_ms_buf[0] = 0;
+    __memory();
     return m_ms_buf;
 }
 

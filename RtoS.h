@@ -420,8 +420,10 @@ __attribute__( ( always_inline ) ) static inline void sTask_skip (void)
 /// ”бить задачу - только внутри работающей задачи
 void __attribute__ ((weak)) sTask_kill(void);
 
-static uint32_t sRandom(uint32_t Random_max,uint32_t Random_min) __attribute__((used));
-uint32_t sRandom(uint32_t Random_max,uint32_t Random_min)
+
+
+static  uint32_t sRandom( uint32_t Random_max, uint32_t Random_min) __attribute__((used)); //++
+ uint32_t sRandom(uint32_t Random_max, uint32_t Random_min)
 {
     register  uint32_t Random_max__     asm     ("r0") = Random_max;
     register  uint32_t Random_min__     asm     ("r1") = Random_min;

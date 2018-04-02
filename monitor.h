@@ -19,12 +19,17 @@
 #ifndef _MONITOR_
 #define _MONITOR_
 
+#ifdef __cplusplus
+ extern "C" {
+#endif /* __cplusplus */
+
 #define buf_zize    (127)
 uint8_t     m_mk_buf[buf_zize + 1];
 uint8_t     m_ms_buf[buf_zize + 1];
 
 /// печать сообщение в EB monitor
 /// \n новая строка, \t табуляция, \f очистка
+/// \b позиция минус 1 символ, \r позиция строка с нуля.
 void monitor_print (uint8_t* text);
 
 /// Принять сообщение из EB monitor \n enter
@@ -33,6 +38,10 @@ uint8_t *monitor_scan (void);
 /// Печать отладочной информации в EB monitor из os
 void monitor (void);
 
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus  */
 #endif /* _MONITOR_ */
 
 
