@@ -2,16 +2,16 @@
  @file    monitor.h
  @author  AVI-crak
  @version V-51%
- @date    25-января-2017
- @brief   Аxis sRtoS, Cortex-M7 ARM GCC EmBitz
+ @date    25-СЏРЅРІР°СЂСЏ-2017
+ @brief   Рђxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
  license
  Million helicopters and one cent.
 
- форум для обсуждения
+ С„РѕСЂСѓРј РґР»СЏ РѕР±СЃСѓР¶РґРµРЅРёСЏ
  http://forum.ixbt.com/topic.cgi?id=48:11735
 
- репозиторий
+ СЂРµРїРѕР·РёС‚РѕСЂРёР№
  https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
 */
 
@@ -27,15 +27,15 @@
 uint8_t     m_mk_buf[buf_zize + 1];
 uint8_t     m_ms_buf[buf_zize + 1];
 
-/// печать сообщение в EB monitor
-/// \n новая строка, \t табуляция, \f очистка
-/// \b позиция минус 1 символ, \r позиция строка с нуля.
+/// РїРµС‡Р°С‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ РІ EB monitor
+/// \n РЅРѕРІР°СЏ СЃС‚СЂРѕРєР°, \t С‚Р°Р±СѓР»СЏС†РёСЏ, \f РѕС‡РёСЃС‚РєР°
+/// \b РїРѕР·РёС†РёСЏ РјРёРЅСѓСЃ 1 СЃРёРјРІРѕР», \r РїРѕР·РёС†РёСЏ СЃС‚СЂРѕРєР° СЃ РЅСѓР»СЏ.
 void monitor_print (uint8_t* text);
 
-/// Принять сообщение из EB monitor \n enter
+/// РџСЂРёРЅСЏС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ РёР· EB monitor \n enter
 uint8_t *monitor_scan (void);
 
-/// Печать отладочной информации в EB monitor из os
+/// РџРµС‡Р°С‚СЊ РѕС‚Р»Р°РґРѕС‡РЅРѕР№ РёРЅС„РѕСЂРјР°С†РёРё РІ EB monitor РёР· os
 void monitor (void);
 
 
