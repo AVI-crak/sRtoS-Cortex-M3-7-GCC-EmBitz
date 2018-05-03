@@ -2,16 +2,16 @@
  @file    monitor.c
  @author  AVI-crak
  @version V-51%
- @date    25-января-2017
- @brief   Аxis sRtoS, Cortex-M7 ARM GCC EmBitz
+ @date    25-СЏРЅРІР°СЂСЏ-2017
+ @brief   Рђxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
  license
  Million helicopters and one cent.
 
- форум для обсуждения
+ С„РѕСЂСѓРј РґР»СЏ РѕР±СЃСѓР¶РґРµРЅРёСЏ
  http://forum.ixbt.com/topic.cgi?id=48:11735
 
- репозиторий
+ СЂРµРїРѕР·РёС‚РѕСЂРёР№
  https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
 */
 
@@ -58,7 +58,7 @@ void monitor_fining (void)
 
 volatile uint32_t monitor_timtemp = 0;
 
- /// печать строки
+ /// РїРµС‡Р°С‚СЊ СЃС‚СЂРѕРєРё
 void monitor_print (uint8_t* text)
 {
 
@@ -83,7 +83,7 @@ void monitor_print (uint8_t* text)
                 {
                    monitor_timtemp = (uint32_t) 0-1;
                    return;
-                }else sTask_skip();// Delay(1000);// там занято
+                }else sTask_skip();// Delay(1000);// С‚Р°Рј Р·Р°РЅСЏС‚Рѕ
             };
             _eb_monitor_stdout.ptr[temp_h] = text[temp_t++];
             _eb_monitor_stdout.head = temp_h;
@@ -135,7 +135,7 @@ time_tax = sSystem_task.system_us;
 //                   15           5        10        10        10
 monitor_print("Task_name     ;  ID;     zize; max_zize;     time;   mode\n");
 while ( ! sSystem_task.sustem_flag.flag.reliability_task_list ) sTask_skip();
-Ltask_list_zize_sys = sSystem_task.task_list_zize_sys;    //Количество тасков в системе
+Ltask_list_zize_sys = sSystem_task.task_list_zize_sys;    //РљРѕР»РёС‡РµСЃС‚РІРѕ С‚Р°СЃРєРѕРІ РІ СЃРёСЃС‚РµРјРµ
 temp_list = 0;
 while(Ltask_list_zize_sys != 0 )
 {
