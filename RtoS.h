@@ -1,7 +1,7 @@
 /**
  @file    RtoS_cortex_m7.S
  @author  AVI-crak
- @version V-45%
+ @version V-47%
  @date    28-декабря-2016
  @brief   Аxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
