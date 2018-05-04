@@ -324,11 +324,11 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
     sSystem_task.Random_register2 = RTC->BKP2R;
     #else
     sSystem_task.Random_register0 = BKP->DR1;
-    sSystem_task.Random_register0 |= BKP->DR2 < 16;
+    sSystem_task.Random_register0 |= BKP->DR2 << 16;
     sSystem_task.Random_register1 = BKP->DR3;
-    sSystem_task.Random_register1 |= BKP->DR4 < 16;
+    sSystem_task.Random_register1 |= BKP->DR4 << 16;
     sSystem_task.Random_register2 = BKP->DR5;
-    sSystem_task.Random_register2 |= BKP->DR6 <16;
+    sSystem_task.Random_register2 |= BKP->DR6 << 16;
     #endif
     if ((sSystem_task.Random_register0 == 0) | (sSystem_task.Random_register1 == 0) | (sSystem_task.Random_register2 == 0))
     {
