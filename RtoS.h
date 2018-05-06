@@ -21,6 +21,9 @@
 //#ifndef _RtoS_
 
 //#define _bitFlag volatile uint32_t __attribute__ ((section(".flag"))) // так лучше
+#define STM32F7xx
+#define STM32F746xx
+#include "stm32f7xx.h"
 
 
 //#pragma pack(push, 4)
@@ -209,25 +212,38 @@ void sTask_resource_free (uint32_t *name_resource)
     if ( *name_resource == *(sSystem_task.activ -> task_names) ) *name_resource = 0; else;
 }
 
+typedef union
+{
+    struct
+        {
+            uint32_t over       :2;
+            uint32_t mc         :30;
+        };
+    uint32_t alarm_raw;
+}raw_Task_alarm;
+
 /// Функция отложенного события по циклическому таймеру
 /// пример
 /// static uint32_t alarm_mc2;
 /// if (sTask_alarm_mc(&alarm_mc1,1000)) { действие каждую новую секунду }
-static uint32_t sTask_alarm_mc(uint32_t * timer_name, uint32_t timer_mc);
-uint32_t sTask_alarm_mc(uint32_t * timer_name, uint32_t timer_mc)
+static uint32_t sTask_alarm_mc(uint32_t * timer_name, const uint32_t timer_mc);
+uint32_t sTask_alarm_mc(uint32_t * timer_name, const uint32_t timer_mc)
 {
-    uint32_t alarm;
-    if ( *timer_name ==0)
+
+    raw_Task_alarm alarm;
+    alarm.alarm_raw = *timer_name;
+    raw_Task_alarm alarm_tmp;
+    if (alarm.alarm_raw == 0)
     {
-        if  ((sSystem_task.system_us + timer_mc) < sSystem_task.system_us)
-            alarm = 0; else *timer_name = sSystem_task.system_us + timer_mc;
-    }else
+        alarm.over = (sSystem_task.system_us >> 31 );
+        alarm.alarm_raw = (alarm.over << 31) + (sSystem_task.system_us << 2) + 2 + ((timer_mc << 3) >> 1);
+        *timer_name = alarm.alarm_raw;
+        return 0;
+    }else if ( ((alarm.over << 31) + (sSystem_task.system_us << 2)) > alarm.alarm_raw )
     {
-        if  (sSystem_task.system_us > *timer_name)
-           {alarm = 1; *timer_name = 0;}
-            else alarm =0;
-    }
-return alarm;
+        *timer_name = 0; return 1;
+    }else return 0;
+
 }
 
 

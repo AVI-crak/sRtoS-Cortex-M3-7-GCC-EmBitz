@@ -23,8 +23,9 @@
  extern "C" {
 #endif /* __cplusplus */
 
-#define buf_zize    (127)
-uint8_t     m_mk_buf[buf_zize + 1];
+//#define buf_zize    (127)
+#define buf_zize    (256)
+
 uint8_t     m_ms_buf[buf_zize + 1];
 
 /// печать сообщение в EB monitor

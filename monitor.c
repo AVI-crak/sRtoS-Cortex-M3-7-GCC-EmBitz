@@ -15,16 +15,16 @@
  https://bitbucket.org/AVI-crak/rtos-cortex-m3-gcc
 */
 
-#include <string.h>
-#define STM32F7xx
-#define STM32F746xx
-#include "stm32f7xx.h"
+
+#include <stdint.h>
 #include "monitor.h"
 #include "RtoS.h"
+#include "sPrint.h"
 
 
 uint8_t     _std_out_buffer[buf_zize];
 uint8_t     _std_in_buffer[buf_zize];
+uint8_t     m_mk_buf[64];
 
 #pragma pack(push, 4)
 static struct _stdout
@@ -53,10 +53,10 @@ void monitor_fining (void)
     do
     {
         m_mk_buf[tmp++] = 0x20;
-    }while (tmp != buf_zize);
+    }while (tmp != 64);
 };
 
-volatile uint32_t monitor_timtemp = 0;
+uint32_t monitor_timtemp = 0;
 
  /// печать строки
 void monitor_print (uint8_t* text)
@@ -78,7 +78,7 @@ void monitor_print (uint8_t* text)
             _eb_monitor_stdout.head = temp_l;
             while (_eb_monitor_stdout.tail != temp_l )
             {
-                if (monitor_timtemp == 0) monitor_timtemp = sSystem_task.system_us + 1000; else;
+                if (monitor_timtemp == 0) monitor_timtemp = sSystem_task.system_us + 5000; else;
                 if (monitor_timtemp < sSystem_task.system_us)
                 {
                    monitor_timtemp = (uint32_t) 0-1;
@@ -121,7 +121,7 @@ void monitor (void)
 {
 uint32_t    Ltask_list_zize_sys;
 uint32_t    temp_list;
-volatile uint32_t    temp_use;
+uint32_t    temp_use;
 uint16_t    temp_buf;
 uint32_t    temp_n;
                         //  5    10     16
@@ -175,9 +175,9 @@ while(Ltask_list_zize_sys != 0 )
     temp_list++; Ltask_list_zize_sys--;
 }
 uint8_t shaize[12];
-monitor_print ("\nNVIC_size_max: "); monitor_print (_t32_char( sSystem_task.NVIC_size_max,shaize));
-monitor_print ("\nNVIC_size: "); monitor_print (_t32_char( sSystem_task.NVIC_size,shaize));
-monitor_print ("\nTime_ptint: "); monitor_print (_t32_char(time_tax2,shaize));
+printo("\nNVIC_size_max: ",sSystem_task.NVIC_size_max);
+printo("\nNVIC_size: ", sSystem_task.NVIC_size);
+printo("\nTime_ptint: ", time_tax2);
 monitor_print ("ms\n");
 while (_eb_monitor_stdout.tail != _eb_monitor_stdout.head ) sTask_skip();
 time_tax2 = sSystem_task.system_us - time_tax;
