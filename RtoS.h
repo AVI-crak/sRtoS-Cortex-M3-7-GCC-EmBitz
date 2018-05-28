@@ -1,7 +1,7 @@
 /**
  @file    RtoS_cortex_m7.S
  @author  AVI-crak
- @version V-44%
+ @version V-45%
  @date    28-декабря-2016
  @brief   Аxis sRtoS, Cortex-M7 ARM GCC EmBitz
 
@@ -126,7 +126,7 @@ struct  task
 
 
 
-volatile uint32_t Random_register[3];
+
 
 /**
 
@@ -226,24 +226,15 @@ typedef union
 /// пример
 /// static uint32_t alarm_mc2;
 /// if (sTask_alarm_mc(&alarm_mc1,1000)) { действие каждую новую секунду }
-static uint32_t sTask_alarm_mc(uint32_t * timer_name, const uint32_t timer_mc);
-uint32_t sTask_alarm_mc(uint32_t * timer_name, const uint32_t timer_mc)
+__attribute__( ( always_inline ) ) static inline uint32_t sTask_alarm_mc(uint32_t * timer_name, const uint32_t timer_mc)
 {
-
-    raw_Task_alarm alarm;
-    alarm.alarm_raw = *timer_name;
-    raw_Task_alarm alarm_tmp;
-    if (alarm.alarm_raw == 0)
+    if (*timer_name == 0)
     {
-        alarm.over = (sSystem_task.system_us >> 31 );
-        alarm.alarm_raw = (alarm.over << 31) + (sSystem_task.system_us << 2) + 2 + ((timer_mc << 3) >> 1);
-        *timer_name = alarm.alarm_raw;
-        return 0;
-    }else if ( ((alarm.over << 31) + (sSystem_task.system_us << 2)) > alarm.alarm_raw )
+        if (sSystem_task.system_us == 0) *timer_name = (uint32_t) 0-1; else *timer_name = sSystem_task.system_us;
+    }else if (( sSystem_task.system_us - *timer_name ) > timer_mc)
     {
         *timer_name = 0; return 1;
     }else return 0;
-
 }
 
 
@@ -333,22 +324,18 @@ void setup_run(uint32_t __SYSHCLK, uint32_t _main_size, uint32_t NVIC_size)
 	sSystem_task.norm_mc = (__SYSHCLK / 1000) - 6;
 	sSystem_task.task_list_zize_sys = 2;
 
-#ifdef __CM3_REV
+#if __CM3_REV
 	sSystem_task.Random_register0 = BKP->DR1;
 	sSystem_task.Random_register0 |= BKP->DR2 << 16;
 	sSystem_task.Random_register1 = BKP->DR3;
 	sSystem_task.Random_register1 |= BKP->DR4 << 16;
 	sSystem_task.Random_register2 = BKP->DR5;
 	sSystem_task.Random_register2 |= BKP->DR6 << 16;
-#endif
-
-#ifdef __CM4_REV
+#elif __CM4_REV
 	sSystem_task.Random_register0 = RTC->BKP0R;
 	sSystem_task.Random_register1 = RTC->BKP1R;
 	sSystem_task.Random_register2 = RTC->BKP2R;
-#endif
-
-#ifdef __CM7_REV
+#elif __CM7_REV
 	DWT->LAR = 0xC5ACCE55; // разблокировать таймер DWT->CYCCNT для Cortex-M7
 	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
 	sSystem_task.Random_register0 = RTC->BKP0R;
@@ -432,6 +419,7 @@ sSystem_task.activ->flag = 6;
                   :: "r" (taskS_func__), "r" (task_size__), "r" (task_time_rate__),"r" (task_nil_in),
                      "r" (task_func_name__), "r" (func_massif4__) : "memory" );
 sSystem_task.sustem_flag.flag.reliability_task_list = 1;
+asm volatile ("nop" : : : "memory");
 }
 
 
@@ -714,52 +702,9 @@ static inline uint8_t unit_step (uint32_t in)
 }
 
 
-/*
-void PVD_IRQHandler (void)
-{
-#ifdef   __CM7_REV
-RTC->BKP0R = sSystem_task.Random_register0;
-RTC->BKP1R = sSystem_task.Random_register1;
-RTC->BKP2R = sSystem_task.Random_register2;
-QUADSPI->DLR = 1;
-QUADSPI->CCR = 0x01000101;
-QUADSPI->FCR = 0x1B;
-while(!(QUADSPI->SR & 0x04)); /// FTF flag  FIFO пуст -  =1
-QUADSPI->DR = 0xFFFF; /// младший байт первым
-while(!(QUADSPI->SR & 0x02)); /// Wait for TCF flag to be set - передача данных завершена =1
-PWR->CR1 &= ~PWR_CR1_DBP;     ///  защита записи  защищённого домена вкл
-#else
-BKP->DR1 = sSystem_task.Random_register0;
-BKP->DR2 = sSystem_task.Random_register0 > 16;
-BKP->DR3 = sSystem_task.Random_register1;
-BKP->DR4 = sSystem_task.Random_register1 > 16;
-BKP->DR5 = sSystem_task.Random_register2;
-BKP->DR6 = sSystem_task.Random_register2 > 16;
-#endif
-while(1);
-};
 
 
 
-char * _t32_char (uint32_t value, char *buffer)
-{
-   buffer += 11;
-   *--buffer = 0;
-   do
-   {
-      *--buffer = value % 10 + '0';
-      value /= 10;
-   }
-   while (value != 0);
-   return buffer;
-}
-
-__attribute__( ( always_inline ) ) static inline char * t32_char (uint32_t value)
-{
-   uint8_t buffer[12];
-   return _t32_char (value, buffer);
-}
-*/
 /*
 Обратите внимание, что для ARM вы можете указать тип прерывания, которое нужно обработать, добавив необязательный параметр к атрибуту прерывания, например:
 
@@ -775,6 +720,37 @@ __attribute__( ( always_inline ) ) static inline char * t32_char (uint32_t value
 #ifdef _RtoS_
 }
 #endif /* _RtoS_ */
+
+/// Установить в main.c/h #define PVD_IRQHandler_s
+#ifdef PVD_IRQHandler_s
+void PVD_IRQHandler (void)
+{
+#ifdef   __CM7_REV
+RTC->BKP0R = sSystem_task.Random_register0;
+RTC->BKP1R = sSystem_task.Random_register1;
+RTC->BKP2R = sSystem_task.Random_register2;
+QUADSPI->DLR = 1;
+QUADSPI->CCR = 0x01000101;
+QUADSPI->FCR = 0x1B;
+while(!(QUADSPI->SR & 0x04)); /// FTF flag  FIFO пуст -  =1
+QUADSPI->DR = 0xFFFF; /// младший байт первым
+while(!(QUADSPI->SR & 0x02)); /// Wait for TCF flag to be set - передача данных завершена =1
+PWR->CR1 &= ~PWR_CR1_DBP;     ///  защита записи  защищённого домена вкл
+#else
+BKP->DR1 = sSystem_task.Random_register0;
+BKP->DR2 = sSystem_task.Random_register0 >> 16;
+BKP->DR3 = sSystem_task.Random_register1;
+BKP->DR4 = sSystem_task.Random_register1 >> 16;
+BKP->DR5 = sSystem_task.Random_register2;
+BKP->DR6 = sSystem_task.Random_register2 >> 16;
+#endif
+while(1);
+};
+#endif
+
+
+
+
 #define _RtoS_
 
 

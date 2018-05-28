@@ -9,11 +9,10 @@
 /// макрос отдаёт адрес массива для печати (char*)
 /// #define soft_printing(data_char)  monitor_print(data_char)
 #include <stdint.h>
-#include <stdfix.h>
 #include "sPrint.h"
 
 
-//C:\EmBlocks\EmBitz\share\gcc-arm-6-2017-q2\lib\gcc\arm-none-eabi\6.3.1\include\stdfix.h
+
 
 
 
