@@ -163,14 +163,15 @@ __sTask_new: // r0 - новая задача
 __sTask_wake_mc:  // r0 uint32_t* timer_name, r1 uint32_t timer_mc
             ldr     r2, [r0]                // читаем точку таймера
             ldr     r12,  =sSystem_task
-            ldr     r12, [r12, #48]           // Системное время, System time counter
-            add     r3, r2, r1               // новая точка времени
-            subs    r2, r3, r12               // осталось времени до нового запуска
-            ittee   hi                       // если есть время внутри цикла
-            strhi   r3, [r0]
-            movhi   r0, r2
+            ldr     r12, [r12, #48]         // Системное время, System time counter
+            add     r3, r2, r1              // новая точка времени
+            subs    r2, r3, r12             // осталось времени до нового запуска
+            add     r12, r12, r1
+            ittee   hi                      // если есть время внутри цикла
+            strhi   r3, [r0]                //
+            movhi   r0, r2                  // новое время сна остаток
             strls   r12, [r0]
-            movls   r0, r1                   // новое время сна
+            movls   r0, r1                  // новое время сна timer_mc
             b       __sDelay_new
 
 
