@@ -226,7 +226,7 @@ typedef union
 /// пример
 /// static uint32_t alarm_mc2;
 /// if (sTask_alarm_mc(&alarm_mc1,1000)) { действие каждую новую секунду }
-__attribute__( ( always_inline ) ) static inline uint32_t sTask_alarm_mc(uint32_t * timer_name, const uint32_t timer_mc)
+__attribute__( ( always_inline ) ) static inline uint32_t sTask_alarm_mc(uint32_t * timer_name, uint32_t timer_mc)
 {
     if (*timer_name == 0)
     {
@@ -235,6 +235,22 @@ __attribute__( ( always_inline ) ) static inline uint32_t sTask_alarm_mc(uint32_
     {
         *timer_name = 0; return 1;
     }else return 0;
+}
+
+/// Функция фиксированного времени сна по циклическому таймеру
+/// пример
+/// static uint32_t alarm_mc1; sTask_wake_mc(&alarm_mc1,1000);
+/// активное состояние 0-999мс, сон 999-1мс, цикл 1с
+static void sTask_wake_mc(uint32_t * timer_name, uint32_t timer_mc);
+void sTask_wake_mc(uint32_t * timer_name, uint32_t timer_mc)
+{
+    register    uint32_t    *__timer_name   asm  ("r0") = timer_name;
+    register    uint32_t    __timer_mc      asm  ("r1") = timer_mc;
+    asm volatile    ("push   {r3}               \n\t"
+                    "mov     r3, 0x6            \n\t" //__sTask_wake_mc 6;
+                    "svc    0x0                 \n\t"
+                    "pop    {r3}                \n\t"
+                    :: "r" (__timer_name), "r" (__timer_mc) :"memory");
 }
 
 
@@ -708,7 +724,7 @@ static inline uint8_t unit_step (uint32_t in)
 /*
 Обратите внимание, что для ARM вы можете указать тип прерывания, которое нужно обработать, добавив необязательный параметр к атрибуту прерывания, например:
 
-          void f () __attribute__ ((прерывание («IRQ»)));
+          __attribute__( ( interrupt_handler ) )void I2C2_EV_IRQHandler (void);
 
 Допустимыми значениями для этого параметра являются: IRQ, FIQ, SWI, ABORT и UNDEF.
  */
