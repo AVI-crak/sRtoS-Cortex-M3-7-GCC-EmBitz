@@ -52,7 +52,7 @@ SVC_Table:
     .hword   ((___sRandom - SVC_Table)/2)        //3
     .hword   ((__sTask_new - SVC_Table)/2)       //4
     .hword   ((__Delete_Task - SVC_Table)/2)     //5
-    .hword   ((__resource_ask - SVC_Table)/2)    //6 // пусто
+    .hword   ((__sTask_wake_mc - SVC_Table)/2)   //6
     .hword   ((__sDelay_new - SVC_Table)/2)      //7
     .hword   ((__sTask_wait - SVC_Table)/2)      //8
     .hword   ((__sTask_wake - SVC_Table)/2)      //9
@@ -160,8 +160,19 @@ __sTask_new: // r0 - новая задача
             str     r3, [r0, #4]            //новая указывает на старую голову
             b       __nil_exit
  .align 2
-__resource_ask:  // пусто
-            bx      lr
+__sTask_wake_mc:  // r0 uint32_t* timer_name, r1 uint32_t timer_mc
+            ldr     r2, [r0]                // читаем точку таймера
+            ldr     r12,  =sSystem_task
+            ldr     r3, [r12, #48]           // Системное время, System time counter
+            sub     r2, r3, r2               // прошло времени с момента вызова
+            subs    r2, r1, r2               // осталось времени до нового запуска
+            itt     hi                       // если есть время внутри цикла
+            subhi   r3, r3, r2               // считаем пропущенную точку сна
+            subhi   r1, r1, r2               // считаем остаток сна
+            str     r3, [r0]                 // сохраняем точку сна
+            mov     r0, r1                   // сон на остаток
+            b       __sDelay_new
+
 
  .align 2
 __Delete_Task: // 5
@@ -1158,8 +1169,9 @@ __sTask_new_11:
             str     r3, [r0, #-76]           //сохранили xPSR в стек 0x1000000
             mov     r5, #100
             udiv    r1, r1, r5              //подсчёт времени
-            sub     r2, r0, #200           //Cortex-M3 (64)
+            sub     r2, r0, #200           //Cortex-M7 (STACK_Fx 200)
             str     r2, [r0, #8]            //стек задачи (активный хвост)
+            add     r2, r2, #96
             strh    r6, [r0, #24]           //размер стека (задаётся при запуске)
             mov     r3, #200
             strh    r3, [r0, #26]           //мах заюзанный размер стека
