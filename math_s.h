@@ -1,11 +1,11 @@
 
-/// древнее зло на новый лад
-/// в процессе %0,1
+/// РґСЂРµРІРЅРµРµ Р·Р»Рѕ РЅР° РЅРѕРІС‹Р№ Р»Р°Рґ
+/// РІ РїСЂРѕС†РµСЃСЃРµ %0,1
 
 /// + MATH.H http://kazus.ru/forums/attachment.php?attachmentid=124138&d=1515955294
 /// + https://github.com/xboxfanj/math-neon
 /// + gcc\math.h
-/// + собсвенное мнение
+/// + СЃРѕР±СЃРІРµРЅРЅРѕРµ РјРЅРµРЅРёРµ
 
 #ifndef MATH_s
 #define MATH_s
@@ -57,7 +57,7 @@ union float_raw
 
 
 /// drop a fraction below zero
-/// отбросить дробное значение ниже нуля
+/// РѕС‚Р±СЂРѕСЃРёС‚СЊ РґСЂРѕР±РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РЅРёР¶Рµ РЅСѓР»СЏ
 float ceil_f(float value)
 {
 #ifdef __CM7_REV
@@ -80,7 +80,7 @@ float ceil_f(float value)
 }
 
 /// return fractional remainder of division
-/// вернуть дробный остаток деления
+/// РІРµСЂРЅСѓС‚СЊ РґСЂРѕР±РЅС‹Р№ РѕСЃС‚Р°С‚РѕРє РґРµР»РµРЅРёСЏ
 float fmod_f(float value, float divider)
 {
    if (divider!=0.0f)
@@ -110,7 +110,7 @@ const float __expf_lut[8] = {
 };
 
 /// Raising the number E to the power of a value
-/// Возведение числа E в степень value
+/// Р’РѕР·РІРµРґРµРЅРёРµ С‡РёСЃР»Р° E РІ СЃС‚РµРїРµРЅСЊ value
 float exp_f(float value)
 {
     union float_raw Ftemp;
@@ -167,7 +167,7 @@ const float __log_e_f_lut[9] = {
 };
 
 /// Logarithm value for base 2,10,e
-/// Логарифм value по основанию 2,10,e
+/// Р›РѕРіР°СЂРёС„Рј value РїРѕ РѕСЃРЅРѕРІР°РЅРёСЋ 2,10,e
 float log_f(float value, int_fast8_t base_2_10_e)
 {
 	float tmp1, tmp2, tmp3, tmp4, tmp5;
@@ -198,7 +198,7 @@ float log_f(float value, int_fast8_t base_2_10_e)
 
 
 /// returns fractional remainder
-/// возвращает дробный остаток
+/// РІРѕР·РІСЂР°С‰Р°РµС‚ РґСЂРѕР±РЅС‹Р№ РѕСЃС‚Р°С‚РѕРє
 float mod_f(float value)
 {
    return(value - ceil_f(value));
@@ -206,7 +206,7 @@ float mod_f(float value)
 
 
 /// exponentiation value^degree
-/// Возведение в степень value^degree
+/// Р’РѕР·РІРµРґРµРЅРёРµ РІ СЃС‚РµРїРµРЅСЊ value^degree
 float pow_f(float value,float degree)
 {
     if(0 > value && fmod_f(degree, 1) == 0)
@@ -226,7 +226,7 @@ float pow_f(float value,float degree)
 
 
 /// Extraction of the square root value
-/// Извлечение квадратного корня value
+/// РР·РІР»РµС‡РµРЅРёРµ РєРІР°РґСЂР°С‚РЅРѕРіРѕ РєРѕСЂРЅСЏ value
 float sqrt_f(float value)
 {
 #ifdef __CM75_REV
