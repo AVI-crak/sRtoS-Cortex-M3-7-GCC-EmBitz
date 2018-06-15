@@ -19,29 +19,10 @@
 
 #define SQRT2  1.4142135623730950f
 
-//float const ps[4] = {5.9304945, 21.125224, 8.9403076, 0.29730279};
-//float const qs[4] = {1.0000000, 15.035723, 17.764134, 2.4934718};
 
-
-
- ////////////////////////////////////////////////////////////////////////////
-//   float fabs(float x)
-////////////////////////////////////////////////////////////////////////////
-// Description : Computes the absolute value of floating point number x
-// Returns : returns the absolute value of x
-// Date : N/A
-//
 #define fabs abs
 
-////////////////////////////////////////////////////////////////////////////
-//   float fmod(float x)
-////////////////////////////////////////////////////////////////////////////
-// Description : Computes the floating point remainder of x/y
-// Returns : returns the value of x= i*y, for some integer i such that, if y
-// is non zero, the result has the same isgn of x na dmagnitude less than the
-// magnitude of y. If y is zero then a domain error occurs.
-// Date : N/A
-//
+
 
 union float_raw
 {
@@ -173,7 +154,7 @@ float log_f(float value, int_fast8_t base_2_10_e)
 	float tmp1, tmp2, tmp3, tmp4, tmp5;
 	int8_t ord, ord1;
 	union float_raw Ftemp;
-	float *_lut;
+	const float *_lut;
 	if (base_2_10_e != 10) _lut = __log_e_f_lut; else _lut = __log10f_lut;
 
 	Ftemp.f_raw = value;
@@ -229,7 +210,7 @@ float pow_f(float value,float degree)
 /// Извлечение квадратного корня value
 float sqrt_f(float value)
 {
-#ifdef __CM75_REV
+#ifdef __CM7_REV
     float rep;
     asm volatile ("vsqrt.f32 %0,%1" : "=t"(rep) : "t"(value));
     return rep;
@@ -271,7 +252,77 @@ float sqrt_f(float value)
 #endif
 }
 
+float fact_f(float value)
+{
+    float ret = 1;
+    for (int i=1; i<=value; i++)
+        ret *= i;
+    return ret;
+}
 
+float sin_f(float value)
+{
+    value = value * (PI / 180);     // deg->rad               / test
+    value = fmod_f(value, 2 * PI);  //-2π <= value_rad <= 2π  / test
+    float rep = value;
+    float rep_z = 0.0f;
+    float sig = -1.0f;
+    float ret = value * value * value;
+    float fac = 1.0f;
+    int32_t fac_i = 1;
+    int32_t step_i = 3;
+    do
+    {
+        rep_z = rep;
+        while ( fac_i <= step_i) fac *= fac_i++;
+        rep += sig * ( ret / fac);
+        ret = ret * value * value;
+        sig *= -1.0f; step_i += 2;
+    }while (rep_z != rep);
+    return rep;
+}
+
+/*
+float sin_f(float value)
+{
+    value = value * (PI / 180);
+    float res=0, pow = value, fact = 1;
+    for(int i=0; i<5; ++i)
+    {
+        res += pow / fact;
+        pow *= -1 * value * value;
+        fact *= (2 * ( i + 1 )) * (2 * ( i + 1 ) + 1);
+  }
+  return res ;
+}
+*/
+
+/*
+#define T0(x) ( 1 )
+#define T1(x) ( x )
+#define T2(x) ( 2 * x*x - 1 )
+#define T3(x) ( 4 * x*x*x - 3 * x )
+#define T4(x) ( 8 * x*x*x*x - 8 * x*x + 1 )
+#define T5(x) ( 16 * x*x*x*x*x - 20 * x*x*x + 5 * x )
+
+#define C0 1.276278962f
+#define C1 -.285261569f
+#define C2 0.009118016f
+#define C3 -.000136587f
+#define C4 0.000001185f
+#define C5 -.000000007f
+
+#define P(z) ( C0 * T0(z) + C1 * T1(z) + C2 * T2(z) + C3 * T3(z) + C4 * T4(z) + C5 * T5(z) )
+
+float sin_f(float value)
+{
+    value = value * (PI / 180);
+   float z = 2 * value * value - 1;
+
+   return (P(z) * value );
+}
+
+*/
 ////////////////////////////// Trig Functions //////////////////////////////
 #ifdef PI_DIV_BY_TWO_INV
 #undef PI_DIV_BY_TWO_INV
