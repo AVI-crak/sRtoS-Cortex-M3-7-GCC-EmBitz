@@ -14,7 +14,9 @@
 #undef  PI
 #endif
 #include <stdint.h>
-#define PI     3.1415926535897932f
+#define PI     3.1415927410125732421875f
+//3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679
+
 
 
 #define SQRT2  1.4142135623730950f
@@ -51,11 +53,14 @@ float ceil_f(float value)
     Ftemp.f_raw = value;
     int_fast8_t ord = (int_fast8_t)Ftemp.order - 127;
     if (ord < 0) return 0.0f;
-    else { ord = 23 - ord; if(ord > 0)
+    else
     {
-
-        Ftemp.u_raw = ((Ftemp.u_raw >>ord)<<ord);
-    };};
+        ord = 23 - ord;
+        if(ord > 0)
+        {
+            Ftemp.u_raw = ((Ftemp.u_raw >>ord)<<ord);
+        };
+    };
     return Ftemp.f_raw;
 #endif
 }
@@ -71,7 +76,7 @@ float fmod_f(float value, float divider)
 };
 
 
-#define LN2 0.6931471805599453
+//#define LN2 0.6931471805599453
 #define LN2_INV 1.4426950408889634073
 
 const float __expf_rng[2] = {
@@ -254,75 +259,33 @@ float sqrt_f(float value)
 
 float fact_f(float value)
 {
-    float ret = 1;
-    for (int i=1; i<=value; i++)
+    float ret = 1.0f;
+    for (float i=1.0f; i <= value; i++)
         ret *= i;
     return ret;
 }
 
-float sin_f(float value)
+/// error 0,0002384%
+/// sin input is radian, output 1.0: -1.0.
+float sin_f(float value_rad)
 {
-    value = value * (PI / 180);     // deg->rad               / test
-    value = fmod_f(value, 2 * PI);  //-2π <= value_rad <= 2π  / test
-    float rep = value;
-    float rep_z = 0.0f;
-    float sig = -1.0f;
-    float ret = value * value * value;
-    float fac = 1.0f;
-    int32_t fac_i = 1;
-    int32_t step_i = 3;
+    float rep, rep_z, sig, ret, fac, fac_i;
+    rep = value_rad; rep_z = value_rad; ret = value_rad;
+    sig = 1.0f; fac = 1.0f; fac_i = 2.0f;
     do
     {
         rep_z = rep;
-        while ( fac_i <= step_i) fac *= fac_i++;
-        rep += sig * ( ret / fac);
-        ret = ret * value * value;
-        sig *= -1.0f; step_i += 2;
+        sig *= -1.0f;
+        ret *= value_rad * value_rad;
+        fac *= fac_i++; fac *= fac_i++;
+        rep += sig * (ret / fac);
     }while (rep_z != rep);
     return rep;
 }
 
-/*
-float sin_f(float value)
-{
-    value = value * (PI / 180);
-    float res=0, pow = value, fact = 1;
-    for(int i=0; i<5; ++i)
-    {
-        res += pow / fact;
-        pow *= -1 * value * value;
-        fact *= (2 * ( i + 1 )) * (2 * ( i + 1 ) + 1);
-  }
-  return res ;
-}
-*/
 
-/*
-#define T0(x) ( 1 )
-#define T1(x) ( x )
-#define T2(x) ( 2 * x*x - 1 )
-#define T3(x) ( 4 * x*x*x - 3 * x )
-#define T4(x) ( 8 * x*x*x*x - 8 * x*x + 1 )
-#define T5(x) ( 16 * x*x*x*x*x - 20 * x*x*x + 5 * x )
 
-#define C0 1.276278962f
-#define C1 -.285261569f
-#define C2 0.009118016f
-#define C3 -.000136587f
-#define C4 0.000001185f
-#define C5 -.000000007f
 
-#define P(z) ( C0 * T0(z) + C1 * T1(z) + C2 * T2(z) + C3 * T3(z) + C4 * T4(z) + C5 * T5(z) )
-
-float sin_f(float value)
-{
-    value = value * (PI / 180);
-   float z = 2 * value * value - 1;
-
-   return (P(z) * value );
-}
-
-*/
 ////////////////////////////// Trig Functions //////////////////////////////
 #ifdef PI_DIV_BY_TWO_INV
 #undef PI_DIV_BY_TWO_INV
@@ -331,11 +294,11 @@ float sin_f(float value)
 #ifdef PI_DIV_BY_TWO
 #undef PI_DIV_BY_TWO
 #endif
-#define PI_DIV_BY_TWO   1.5707963267948966
+#define PI_DIV_BY_TWO   1.5707963267948966  //pi/2
 #ifdef TWOBYPI
 #undef TWOBYPI
 #endif
-#define TWOBYPI          0.6366197723675813
+#define TWOBYPI          0.6366197723675813   //2/pi
 
 ////////////////////////////////////////////////////////////////////////////
 //   float cos(float x)
@@ -343,51 +306,40 @@ float sin_f(float value)
 // Description : returns the cosine value of the angle x, which is in radian
 // Date : 9/20/2001
 //
-float cos(float x)
+float sin_f2(float value_rad)
 {
-   float y, t, t2 = 1.0;
-   uint8_t quad, i;
+   value_rad -= PI / 2.0f;
+   float rep, tmp1, tmp2 = 1.0;
+   uint8_t quad, nix;
    float frac;
-   float p[5] = {                    //by the series definition for cosine
-      -0.49999999456337096,            // sum ( ( (-1)^n * x^2n )/(2n)! )
-       0.04166663896921267,
-      -0.00138883894522527,
-       0.00002476138231734,
-      -0.00000026070414770
-      //-0.00000000001147,
-      // 0.00000000000005
+   float dat[5] = {                    //by the series definition for cosine
+      -0.49999999456337096f,            // sum ( ( (-1)^n * value_rad^2n )/(2n)! )
+       0.04166663896921267f,
+      -0.00138883894522527f,
+       0.00002476138231734f,
+      -0.00000026070414770f,
    };
-
-   if (x < 0) x = -x;                  // absolute value of input
-
-   quad = (uint8_t)(x * PI_DIV_BY_TWO_INV);    // quadrant
-   frac = (x * PI_DIV_BY_TWO_INV) - quad;  // fractional part of input
-   quad = quad % 4;                    // quadrant (0 to 3)
-
-   if (quad == 0 || quad == 2)
-      t = frac * PI_DIV_BY_TWO;
-   else if (quad == 1)
-      t = (1-frac) * PI_DIV_BY_TWO;
-   else // should be 3
-      t = (frac-1) * PI_DIV_BY_TWO;
-
-   y = 1.0;
-   t = t * t;
-   for (i = 0; i <= 4; i++)
+   if (value_rad < 0.0f) value_rad = -value_rad;
+   quad = (uint8_t)(value_rad * (2.0f / PI));
+   frac = (value_rad * (2.0f / PI)) - quad;
+   quad = quad % 4;
+   if (quad == 0 || quad == 2) tmp1 = frac * (PI / 2.0f);
+   else if (quad == 1) tmp1 = (1.0f - frac) * (PI / 2.0f);
+   else tmp1 = (frac - 1.0f) * (PI / 2.0f);
+   rep = 1.0f;
+   tmp1 = tmp1 * tmp1;
+   for (nix = 0; nix <= 4; nix++)
    {
-      t2 = t2 * t;
-      y = y + p[i] * t2;
+      tmp2 = tmp2 * tmp1; rep = rep + dat[nix] * tmp2;
    }
-
    if (quad == 2 || quad == 1)
-      y = -y;  // correct sign
-
-   return (y);
+      rep = -rep;
+   return (rep);
 }
 
 
 
-
+/*
 ////////////////////////////////////////////////////////////////////////////
 //   float sin(float x)
 ////////////////////////////////////////////////////////////////////////////
@@ -746,6 +698,6 @@ float ldexp(float value, int8_t exp)
 {
    return (value * pow(2,exp));
 }
-
+*/
 
 #endif
