@@ -69,6 +69,7 @@ float ceil_f(float value)
 /// вернуть дробный остаток деления
 float fmod_f(float value, float divider)
 {
+
    if (divider!=0.0f)
    {
        return( value - ( ceil_f(value / divider) * divider));
@@ -265,27 +266,59 @@ float fact_f(float value)
     return ret;
 }
 
+/// Converting degrees to radians
+/// Перевод градусов в радианы
+
+float deg_rad(float value_deg)
+{
+    float rad = (PI * (fmod_f(rad, 360.0f))) / 180.0f;
+    if (rad > PI) rad = rad - 2*PI; else;
+    if (rad < -PI) rad = rad + 2*PI; else;
+    return rad;
+}
+
 /// error 0,0002384%
-/// sin input is radian, output 1.0: -1.0.
+/// sin input is radian +-pi, output 1.0: -1.0.
 float sin_f(float value_rad)
 {
     float rep, rep_z, sig, ret, fac, fac_i;
     rep = value_rad; rep_z = value_rad; ret = value_rad;
-    sig = 1.0f; fac = 1.0f; fac_i = 2.0f;
+    fac = 1.0f; fac_i = 2.0f;
     do
     {
         rep_z = rep;
-        sig *= -1.0f;
-        ret *= value_rad * value_rad;
+        ret *= value_rad * value_rad * -1.0f;
         fac *= fac_i++; fac *= fac_i++;
-        rep += sig * (ret / fac);
+        rep += ret / fac;
     }while (rep_z != rep);
     return rep;
 }
 
 
+float cos_f(float value_rad)
+{
+    if ((value_rad + PI/2.0f) > PI) return sin_f(value_rad - 1.5f*PI);
+    else return sin_f(value_rad + PI/2.0f);
+}
 
+/* оригинал
+double cosx(double x)
+{
+    double n = 1.0;
+    double sum = 0.0;
+    int i = 1;
 
+    do
+    {
+        sum += n;
+        n *= -1.0 * x * x / ((2 * i - 1) * (2 * i));
+        i++;
+    }
+    while (fabs(n) > 0.000000001);
+
+    return sum;
+}
+*/
 ////////////////////////////// Trig Functions //////////////////////////////
 #ifdef PI_DIV_BY_TWO_INV
 #undef PI_DIV_BY_TWO_INV
