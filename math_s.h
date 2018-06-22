@@ -1,6 +1,6 @@
 
 /// древнее зло на новый лад
-/// в процессе %0,1
+/// в процессе %0,2
 
 /// + MATH.H http://kazus.ru/forums/attachment.php?attachmentid=124138&d=1515955294
 /// + https://github.com/xboxfanj/math-neon
@@ -268,38 +268,78 @@ float fact_f(float value)
 
 /// Converting degrees to radians
 /// Перевод градусов в радианы
-
 float deg_rad(float value_deg)
 {
-    float rad = (PI * (fmod_f(rad, 360.0f))) / 180.0f;
-    if (rad > PI) rad = rad - 2*PI; else;
-    if (rad < -PI) rad = rad + 2*PI; else;
+    float rad;
+    rad = (fmod_f(value_deg * (PI/180.0f), PI*2.0f ));
+    if (rad >= PI) rad -= 2*PI; else;
+    if (rad <= -PI) rad += 2*PI; else;
     return rad;
 }
 
-/// error 0,0002384%
-/// sin input is radian +-pi, output 1.0: -1.0.
+volatile float test__sin_tabs[30];
+volatile float test__sin_tabr[30];
+const float table_const_sin[14] =
+{
+    -0.16666667163372039794921875f,
+    0.008333333767950534820556640625f,
+    -0.000198412701138295233249664306640625f,
+    0.000002755731884462875314056873321533203125f,
+    -2.50521079436794025241397321224212646484e-8f,
+    1.605904437207428259171138051897287368774e-10f,
+    -7.64716415191379894622514257207512855529e-13f,
+    2.811457358966370362329811882773356046527e-15f,
+    -8.22063590565713390371886670759948856357e-18f,
+    1.957294152468580795866857045817166493861e-20f,
+    -3.86816998242036873569474607912135888376e-23f,
+    6.446949724181581677925054274037088155408e-26f,
+    -9.18368920810427000429190050045006257407e-29f,
+    1.130996129721344896583330812479351289909e-31f,
+};
+/// error 0,0%, 3~22 steps
+/// sin input is radian +pi:-pi, output 1.0:-1.0.
 float sin_f(float value_rad)
 {
-    float rep, rep_z, sig, ret, fac, fac_i;
-    rep = value_rad; rep_z = value_rad; ret = value_rad;
-    fac = 1.0f; fac_i = 2.0f;
+    float rep, ret, rev;
+    rep = value_rad; ret = rep; rev = rep * rep;
+    int32_t nex = 0;
+    do
+    {
+        ret *= rev;
+        rep += ret * table_const_sin[nex++];
+    }while (nex != 14);
+    return rep;
+}
+
+double sin_d(double value_rad)
+{
+    double rep, rep_z, sig, ret, rev, fac, fac_i;
+    rep = value_rad; ret = rep; rev = rep * rep;
+    fac = 1.0d; fac_i = 2.0d;
     do
     {
         rep_z = rep;
-        ret *= value_rad * value_rad * -1.0f;
-        fac *= fac_i++; fac *= fac_i++;
+        ret *= rev; fac *= fac_i++; fac *= fac_i++;
+        rep -= ret / fac;
+        ret *= rev; fac *= fac_i++; fac *= fac_i++;
         rep += ret / fac;
     }while (rep_z != rep);
     return rep;
 }
-
 
 float cos_f(float value_rad)
 {
     if ((value_rad + PI/2.0f) > PI) return sin_f(value_rad - 1.5f*PI);
     else return sin_f(value_rad + PI/2.0f);
 }
+
+
+
+
+
+
+
+
 
 /* оригинал
 double cosx(double x)
