@@ -271,8 +271,10 @@ float fact_f(float value)
 float deg_rad(float value_deg)
 {
     float rad;
-    rad = (fmod_f(value_deg * (PI/180.0f), PI*2.0f ));
+    rad = value_deg;
     if (rad < 0) rad *= -1.0f; else;
+    if (rad > 360.0f) rad = (fmod_f(rad * (PI/180.0f), PI*2.0f ));
+        else rad *= (PI/180.0f);
    // if (rad >= PI) rad -= 2*PI; else;
     return rad;
 }
