@@ -272,13 +272,13 @@ float deg_rad(float value_deg)
 {
     float rad;
     rad = (fmod_f(value_deg * (PI/180.0f), PI*2.0f ));
-    if (rad >= PI) rad -= 2*PI; else;
-    if (rad <= -PI) rad += 2*PI; else;
+    if (rad >= PI) rad -= 2*PI;
+    else if (rad <= -PI) rad += 2*PI; else;
     return rad;
 }
 
-volatile float test__sin_tabs[30];
-volatile float test__sin_tabr[30];
+/// tab = 1.0f; s = 2.0f;
+/// (tab *= s++; tab *= s++; x(n) = -1.0f/tab;)
 const float table_const_sin[14] =
 {
     -0.16666667163372039794921875f,
@@ -296,7 +296,8 @@ const float table_const_sin[14] =
     -9.18368920810427000429190050045006257407e-29f,
     1.130996129721344896583330812479351289909e-31f,
 };
-/// error 0,0%, 3~22 steps
+
+/// error 0,0%, 8~14 steps(8-10-12-14)
 /// sin input is radian +pi:-pi, output 1.0:-1.0.
 float sin_f(float value_rad)
 {
@@ -309,6 +310,66 @@ float sin_f(float value_rad)
         rep += ret * table_const_sin[nex++];
     }while (nex != 14);
     return rep;
+}
+
+const uint32_t  test_tab[256]={
+0x00000000, 0x3BC9D961, 0x3C49D866, 0x3C976113, 0x3CC9D47A, 0x3CFC45EC, 0x3D175A75, 0x3D30907B, 0x3D49C4CC, 0x3D62F725,
+0x3D7C274B, 0x3D8AAA7F, 0x3D973FFF, 0x3DA3D407, 0x3DB06677, 0x3DBCF733, 0x3DC98616, 0x3DD61305, 0x3DE29DE1, 0x3DEF2688,
+0x3DFBACDC, 0x3E04185F, 0x3E0A5908, 0x3E109859, 0x3E16D642, 0x3E1D12B3, 0x3E234DA0, 0x3E2986F5, 0x3E2FBEA4, 0x3E35F4A0,
+0x3E3C28D7, 0x3E425B38, 0x3E488BB7, 0x3E4EBA44, 0x3E54E6CE, 0x3E5B1148, 0x3E6139A0, 0x3E675FC7, 0x3E6D83AF, 0x3E73A54A,
+0x3E79C485, 0x3E7FE155, 0x3E82FDD3, 0x3E8609B7, 0x3E89144D, 0x3E8C1D8F, 0x3E8F2574, 0x3E922BF5, 0x3E95310B, 0x3E9834AD,
+0x3E9B36D4, 0x3E9E377A, 0x3EA13697, 0x3EA43422, 0x3EA73016, 0x3EAA2A6A, 0x3EAD2315, 0x3EB01A13, 0x3EB30F5B, 0x3EB602E5,
+0x3EB8F4AD, 0x3EBBE4A6, 0x3EBED2CC, 0x3EC1BF18, 0x3EC4A983, 0x3EC79205, 0x3ECA7896, 0x3ECD5D2E, 0x3ED03FCA, 0x3ED3205E,
+0x3ED5FEE7, 0x3ED8DB5B, 0x3EDBB5B4, 0x3EDE8DE8, 0x3EE163F5, 0x3EE437D1, 0x3EE70976, 0x3EE9D8DD, 0x3EECA5FE, 0x3EEF70D1,
+0x3EF23952, 0x3EF4FF79, 0x3EF7C33E, 0x3EFA8499, 0x3EFD4389, 0x3F000000, 0x3F015CFF, 0x3F02B8BB, 0x3F041330, 0x3F056C5F,
+0x3F06C441, 0x3F081AD6, 0x3F097017, 0x3F0AC403, 0x3F0C1695, 0x3F0D67CA, 0x3F0EB7A1, 0x3F100614, 0x3F115322, 0x3F129EC7,
+0x3F13E8FC, 0x3F1531C5, 0x3F167918, 0x3F17BEF7, 0x3F19035C, 0x3F1A4643, 0x3F1B87AE, 0x3F1CC792, 0x3F1E05F2, 0x3F1F42C9,
+0x3F207E15, 0x3F21B7D0, 0x3F22EFFA, 0x3F24268F, 0x3F255B8B, 0x3F268EED, 0x3F27C0AE, 0x3F28F0D0, 0x3F2A1F4F, 0x3F2B4C25,
+0x3F2C7752, 0x3F2DA0D2, 0x3F2EC8A2, 0x3F2FEEBF, 0x3F311326, 0x3F3235D6, 0x3F3356CA, 0x3F347601, 0x3F359376, 0x3F36AF28,
+0x3F37C914, 0x3F38E136, 0x3F39F78D, 0x3F3B0C16, 0x3F3C1ECD, 0x3F3D2FB1, 0x3F3E3EBD, 0x3F3F4BF2, 0x3F40574A, 0x3F4160C3,
+0x3F42685D, 0x3F436E13, 0x3F4471E2, 0x3F4573C9, 0x3F4673C6, 0x3F4771D4, 0x3F486DF2, 0x3F49681F, 0x3F4A6054, 0x3F4B5695,
+0x3F4C4ADD, 0x3F4D3D27, 0x3F4E2D73, 0x3F4F1BBD, 0x3F500807, 0x3F50F248, 0x3F51DA84, 0x3F52C0B5, 0x3F53A4DA, 0x3F5486F1,
+0x3F5566F8, 0x3F5644ED, 0x3F5720CB, 0x3F57FA93, 0x3F58D242, 0x3F59A7D5, 0x3F5A7B4C, 0x3F5B4CA3, 0x3F5C1BD7, 0x3F5CE8EA,
+0x3F5DB3D7, 0x3F5E7C9D, 0x3F5F433A, 0x3F6007AA, 0x3F60C9EF, 0x3F618A05, 0x3F6247E7, 0x3F63039A, 0x3F63BD17, 0x3F64745D,
+0x3F65296C, 0x3F65DC41, 0x3F668CDB, 0x3F673B35, 0x3F67E752, 0x3F68912E, 0x3F6938C7, 0x3F69DE1C, 0x3F6A812E, 0x3F6B21F8,
+0x3F6BC078, 0x3F6C5CAD, 0x3F6CF697, 0x3F6D8E33, 0x3F6E2382, 0x3F6EB680, 0x3F6F472E, 0x3F6FD586, 0x3F70618A, 0x3F70EB3A,
+0x3F717292, 0x3F71F791, 0x3F727A37, 0x3F72FA84, 0x3F737871, 0x3F73F403, 0x3F746D34, 0x3F74E407, 0x3F755878, 0x3F75CA88,
+0x3F763A35, 0x3F76A77C, 0x3F771260, 0x3F777ADC, 0x3F77E0F0, 0x3F78449D, 0x3F78A5DE, 0x3F7904B8, 0x3F796125, 0x3F79BB27,
+0x3F7A12BB, 0x3F7A67E1, 0x3F7ABA98, 0x3F7B0AE1, 0x3F7B58B7, 0x3F7BA420, 0x3F7BED15, 0x3F7C3397, 0x3F7C77A7, 0x3F7CB944,
+0x3F7CF869, 0x3F7D351B, 0x3F7D6F57, 0x3F7DA71E, 0x3F7DDC6C, 0x3F7E0F44, 0x3F7E3FA5, 0x3F7E6D8D, 0x3F7E98FD, 0x3F7EC1F1,
+0x3F7EE86E, 0x3F7F0C72, 0x3F7F2DFA, 0x3F7F4D09, 0x3F7F699D, 0x3F7F83B2, 0x3F7F9B4F, 0x3F7FB06F, 0x3F7FC315, 0x3F7FD33E,
+0x3F7FE0EA, 0x3F7FEC1C, 0x3F7FF4D0, 0x3F7FFB07, 0x3F7FFEC1, 0x3F7FFFFF,};
+
+
+/// error 0,0002%, 0,0064% coincidence of
+/// sin input is radian +pi:-pi, output 1.0:-1.0.
+float sin_f_fast(float value_rad)
+{
+    float res, rrg, ggf, fdf, sign; int32_t nxi;
+    float* tab; tab = (float*) test_tab;
+    if (0 > value_rad) value_rad *= -1.0f; else;
+    if (value_rad >= (PI/2.0f)) {value_rad = PI - value_rad; sign = -1.0f;} else sign = 1.0f;
+
+    ggf = value_rad * (1/(PI/2));
+    rrg = value_rad * ((1/(PI/2)) * 255.0f); /// 255.0f = the size of the array of constants of sin (0:pi/2)
+    nxi = (int32_t)rrg; rrg -= (float)nxi ;
+    res =  rrg * tab[nxi+1] + (1.0f - rrg) * tab[nxi]
+            + ( (tab[nxi+1]-tab[nxi]) * (0.25f-(rrg-0.5)*(rrg-0.5)) / (512.0f) ); // + coincidence
+    return (res * sign);
+}
+
+/// cos input is radian +pi:-pi, output 1.0:-1.0.
+float cos_f(float value_rad)
+{
+    if ((value_rad + PI/2.0f) > PI) return sin_f(value_rad - 1.5f*PI);
+    else return sin_f(value_rad + PI/2.0f);
+}
+
+/// cos input is radian +pi:-pi, output 1.0:-1.0.
+float cos_f_fast(float value_rad)
+{
+    if ((value_rad + PI/2.0f) > PI) return sin_f_fast(value_rad - 1.5f*PI);
+    else return sin_f_fast(value_rad + PI/2.0f);
 }
 
 double sin_d(double value_rad)
@@ -327,11 +388,6 @@ double sin_d(double value_rad)
     return rep;
 }
 
-float cos_f(float value_rad)
-{
-    if ((value_rad + PI/2.0f) > PI) return sin_f(value_rad - 1.5f*PI);
-    else return sin_f(value_rad + PI/2.0f);
-}
 
 
 
@@ -341,24 +397,8 @@ float cos_f(float value_rad)
 
 
 
-/* оригинал
-double cosx(double x)
-{
-    double n = 1.0;
-    double sum = 0.0;
-    int i = 1;
 
-    do
-    {
-        sum += n;
-        n *= -1.0 * x * x / ((2 * i - 1) * (2 * i));
-        i++;
-    }
-    while (fabs(n) > 0.000000001);
 
-    return sum;
-}
-*/
 ////////////////////////////// Trig Functions //////////////////////////////
 #ifdef PI_DIV_BY_TWO_INV
 #undef PI_DIV_BY_TWO_INV
@@ -373,59 +413,10 @@ double cosx(double x)
 #endif
 #define TWOBYPI          0.6366197723675813   //2/pi
 
-////////////////////////////////////////////////////////////////////////////
-//   float cos(float x)
-////////////////////////////////////////////////////////////////////////////
-// Description : returns the cosine value of the angle x, which is in radian
-// Date : 9/20/2001
-//
-float sin_f2(float value_rad)
-{
-   value_rad -= PI / 2.0f;
-   float rep, tmp1, tmp2 = 1.0;
-   uint8_t quad, nix;
-   float frac;
-   float dat[5] = {                    //by the series definition for cosine
-      -0.49999999456337096f,            // sum ( ( (-1)^n * value_rad^2n )/(2n)! )
-       0.04166663896921267f,
-      -0.00138883894522527f,
-       0.00002476138231734f,
-      -0.00000026070414770f,
-   };
-   if (value_rad < 0.0f) value_rad = -value_rad;
-   quad = (uint8_t)(value_rad * (2.0f / PI));
-   frac = (value_rad * (2.0f / PI)) - quad;
-   quad = quad % 4;
-   if (quad == 0 || quad == 2) tmp1 = frac * (PI / 2.0f);
-   else if (quad == 1) tmp1 = (1.0f - frac) * (PI / 2.0f);
-   else tmp1 = (frac - 1.0f) * (PI / 2.0f);
-   rep = 1.0f;
-   tmp1 = tmp1 * tmp1;
-   for (nix = 0; nix <= 4; nix++)
-   {
-      tmp2 = tmp2 * tmp1; rep = rep + dat[nix] * tmp2;
-   }
-   if (quad == 2 || quad == 1)
-      rep = -rep;
-   return (rep);
-}
 
 
 
 /*
-////////////////////////////////////////////////////////////////////////////
-//   float sin(float x)
-////////////////////////////////////////////////////////////////////////////
-// Description : returns the sine value of the angle x, which is in radian
-// Date : 9/20/2001
-//
-float sin(float x)
-{
-   return cos(x - PI_DIV_BY_TWO);
-}
-
-
-
 ////////////////////////////////////////////////////////////////////////////
 //   float tan(float x)
 ////////////////////////////////////////////////////////////////////////////
