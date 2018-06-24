@@ -272,8 +272,8 @@ float deg_rad(float value_deg)
 {
     float rad;
     rad = (fmod_f(value_deg * (PI/180.0f), PI*2.0f ));
-    if (rad >= PI) rad -= 2*PI;
-    else if (rad <= -PI) rad += 2*PI; else;
+    if (rad < 0) rad *= -1.0f; else;
+   // if (rad >= PI) rad -= 2*PI; else;
     return rad;
 }
 
@@ -298,11 +298,12 @@ const float table_const_sin[14] =
 };
 
 /// error 0,0%, 8~14 steps(8-10-12-14)
-/// sin input is radian +pi:-pi, output 1.0:-1.0.
+/// sin input is radian 0:+2pi, output 1.0:-1.0.
 float sin_f(float value_rad)
 {
     float rep, ret, rev;
-    rep = value_rad; ret = rep; rev = rep * rep;
+    if (value_rad > PI) rep = -2.0f*PI + value_rad; else rep = value_rad;
+    ret = rep; rev = rep * rep;
     int32_t nex = 0;
     do
     {
@@ -342,15 +343,17 @@ const uint32_t  test_tab[256]={
 
 
 /// error 0,0002%, 0,0064% coincidence of
-/// sin input is radian +pi:-pi, output 1.0:-1.0.
+/// sin input is radian 0:+2pi, output 1.0:-1.0.
 float sin_f_fast(float value_rad)
 {
-    float res, rrg, ggf, fdf, sign; int32_t nxi;
+    float res, rrg, fdf, sign; int32_t nxi;
     float* tab; tab = (float*) test_tab;
-    if (0 > value_rad) value_rad *= -1.0f; else;
-    if (value_rad >= (PI/2.0f)) {value_rad = PI - value_rad; sign = -1.0f;} else sign = 1.0f;
+    if ( value_rad > PI ) {value_rad = 2.0f*PI - value_rad; sign = -1.0f;} else sign = 1.0f;
 
-    ggf = value_rad * (1/(PI/2));
+
+    if (value_rad > (PI/2.0f)) value_rad = PI - value_rad; else;
+
+
     rrg = value_rad * ((1/(PI/2)) * 255.0f); /// 255.0f = the size of the array of constants of sin (0:pi/2)
     nxi = (int32_t)rrg; rrg -= (float)nxi ;
     res =  rrg * tab[nxi+1] + (1.0f - rrg) * tab[nxi]
@@ -358,17 +361,19 @@ float sin_f_fast(float value_rad)
     return (res * sign);
 }
 
-/// cos input is radian +pi:-pi, output 1.0:-1.0.
+/// cos input is radian 0:+2pi, output 1.0:-1.0.
 float cos_f(float value_rad)
 {
-    if ((value_rad + PI/2.0f) > PI) return sin_f(value_rad - 1.5f*PI);
+    if ( value_rad < 0.0f ) value_rad *= -1.0f; else;
+    if ((value_rad + PI/2.0f) > 2.0f*PI) return sin_f(value_rad - 1.5f*PI);
     else return sin_f(value_rad + PI/2.0f);
 }
 
-/// cos input is radian +pi:-pi, output 1.0:-1.0.
+/// cos input is radian 0:+2pi, output 1.0:-1.0.
 float cos_f_fast(float value_rad)
 {
-    if ((value_rad + PI/2.0f) > PI) return sin_f_fast(value_rad - 1.5f*PI);
+    if ( value_rad < 0.0f ) value_rad *= -1.0f; else;
+    if ((value_rad + PI/2.0f) > 2.0f*PI) return sin_f_fast(value_rad - 1.5f*PI);
     else return sin_f_fast(value_rad + PI/2.0f);
 }
 
