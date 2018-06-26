@@ -1,6 +1,6 @@
 
 /// древнее зло на новый лад
-/// в процессе %0,3
+/// в процессе %0,2
 
 /// + MATH.H http://kazus.ru/forums/attachment.php?attachmentid=124138&d=1515955294
 /// + https://github.com/xboxfanj/math-neon
@@ -15,14 +15,7 @@
 #endif
 #include <stdint.h>
 #define PI     3.1415927410125732421875f
-//3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679
-
-
-
-#define SQRT2  1.4142135623730950f
-
-
-#define fabs abs
+///original pi 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679
 
 
 
@@ -39,16 +32,55 @@ union float_raw
 };
 
 
-/// drop a fraction below zero
-/// отбросить дробное значение ниже нуля
+/// rounding up to the smallest integer that is greater than or equal to the |argument|
+/// округление до наименьшего целого, которое больше или равно |аргументу|
+#ifdef __CM7_REV
 float ceil_f(float value)
 {
-#ifdef __CM7_REV
-    float rep;
-    if (value > 0.0f) asm volatile ("vrintm.f32 %0,%1" : "=t"(rep) : "t"(value));
-    else asm volatile ("vrintp.f32 %0,%1" : "=t"(rep) : "t"(value));
+    float rep; int32_t tmp;
+    tmp = (int32_t)value;
+    if (tmp > 0) asm volatile ("vrintp.f32 %0,%1" : "=t"(rep) : "t"(value));
+        else asm volatile ("vrintm.f32 %0,%1" : "=t"(rep) : "t"(value));
     return rep;
+}
 #else
+float ceil_f(float value)
+{
+    union float_raw Ftemp;
+    Ftemp.f_raw = value;
+    uint32_t err = 0;
+    int_fast8_t ord = (int_fast8_t)Ftemp.order - 127;
+    if (ord >= 0)
+    {
+        ord = 23 - ord;
+        if(ord > 0)
+        {
+            err = Ftemp.u_raw;
+            Ftemp.u_raw = ((Ftemp.u_raw >>ord)<<ord);
+            err -= Ftemp.u_raw;
+            if (err != 0)
+            {
+                if (Ftemp.sign == 0) return (Ftemp.f_raw + 1.0f);
+                    else return (Ftemp.f_raw - 1.0f);
+            };
+        }else return value;
+    }else return 0.0f;
+}
+#endif
+
+
+/// drop a fraction below zero
+/// отбросить дробное значение ниже нуля
+#ifdef __CM7_REV
+static inline float floor_f(float value)
+{
+    float rep;
+    asm volatile ("vrintz.f32 %0,%1" : "=t"(rep) : "t"(value));
+    return rep;
+}
+#else
+float floor_f(float value)
+{
     union float_raw Ftemp;
     Ftemp.f_raw = value;
     int_fast8_t ord = (int_fast8_t)Ftemp.order - 127;
@@ -62,8 +94,46 @@ float ceil_f(float value)
         };
     };
     return Ftemp.f_raw;
-#endif
 }
+#endif
+
+
+
+/// round up to the nearest whole
+/// округлить до ближайшего целого
+#ifdef __CM7_REV
+static inline float round_f(float value)
+{
+    float rep;
+    asm volatile ("vrinta.f32 %0,%1" : "=t"(rep) : "t"(value));
+    return rep;
+}
+#else
+float round_f(float value)
+{
+    union float_raw Ftemp;
+    Ftemp.f_raw = value;
+    uint32_t err = 0;
+    int_fast8_t ord = (int_fast8_t)Ftemp.order - 127;
+    if (ord >= 0)
+    {
+        ord = 23 - ord;
+        if(ord > 0)
+        {
+            err = Ftemp.u_raw;
+            Ftemp.u_raw = ((Ftemp.u_raw >>ord)<<ord);
+            err -= Ftemp.u_raw;
+            err *= 2; err >>= ord;
+            if (err != 0)
+            {
+                if (Ftemp.sign == 0) return (Ftemp.f_raw + 1.0f);
+                    else return (Ftemp.f_raw - 1.0f);
+            }else return Ftemp.f_raw;
+        }else return value;
+    }else return 0.0f;
+}
+#endif
+
 
 /// return fractional remainder of division
 /// вернуть дробный остаток деления
@@ -72,27 +142,35 @@ float fmod_f(float value, float divider)
 
    if (divider!=0.0f)
    {
-       return( value - ( ceil_f(value / divider) * divider));
+       return( value - ( floor_f(value / divider) * divider));
    } else return 0.0f;
 };
 
 
 /// return |value|
 /// сбросить знак
-float abs_f(float value)
-{
 #if defined (__CM7_REV) || defined (__CM4_REV)
+static inline float abs_f(float value)
+{
     float rep;
     asm volatile ("vabs.f32 %0,%1" : "=t"(rep) : "t"(value));
     return rep;
+}
 #else
+float abs_f(float value)
+{
     union float_raw Ftemp;
     Ftemp.f_raw = value;
     Ftemp.sign = 0;
     return Ftemp.f_raw;
-#endif
 };
+#endif
 
+/// ошибка
+float error_value(float x, float y)
+{
+    if (x>y) return abs_f(x-y);else return abs_f(y-x);
+};
 
 const float __expf_rng[2] = {
 	1.442695041f,
@@ -193,9 +271,9 @@ float log_f(float value, int_fast8_t base_2_10_e)
 
 /// returns fractional remainder
 /// возвращает дробный остаток
-float mod_f(float value)
+static inline float mod_f(float value)
 {
-   return(value - ceil_f(value));
+   return(value - floor_f(value));
 }
 
 
@@ -221,17 +299,17 @@ float pow_f(float value,float degree)
 
 /// Extraction of the square root value
 /// Извлечение квадратного корня value
-float sqrt_f(float value)
-{
 #if defined (__CM7_REV) || defined (__CM4_REV)
+static inline float sqrt_f(float value)
+{
     float rep;
     asm volatile ("vsqrt.f32 %0,%1" : "=t"(rep) : "t"(value));
     return rep;
+}
 #else
-
-/// polynomial or magic_VRSQRTE
-#define magic_VRSQRTE
-
+float sqrt_f(float value)
+#define magic_VRSQRTE  /// polynomial or magic_VRSQRTE
+{
  #ifdef magic_VRSQRTE
 	float tmp1, tmp2;
 	int32_t mas;
@@ -261,9 +339,8 @@ float sqrt_f(float value)
  #else
 	return (pow_f(value, 0.5f ));
  #endif
-
-#endif
 }
+#endif
 
 float fact_f(float value)
 {
@@ -277,9 +354,9 @@ float fact_f(float value)
 float deg_rad(float value_deg)
 {
     float rad;
-    rad = value_deg;
-    if ((rad > 360.0f)||(rad < -360.0f))  rad = (fmod_f(rad * (PI/180.0f), PI*2.0f ));
-        else rad *= (PI/180.0f);
+    rad = abs_f( value_deg * 0.00277777784503996372222900390625f);// (1/360)
+    if (rad > 0.0f)  rad = fmod_f(value_deg * 0.01745329238474369049072265625f, 6.283185482025146484375f );  // PI*2.0f
+        else rad = value_deg * 0.01745329238474369049072265625f; //(PI/180.0f);
     return rad;
 }
 
@@ -414,23 +491,24 @@ float tan_f(float value_rad)
     return rep;
 }
 
-
-one =  1.0000000000e+00, /* 0x3F800000 */
-huge =  1.000e+30,
+/*
+one =  1.0000000000e+00f, // 0x3F800000
+huge =  1.000e+30f,
 pio2_hi = 1.57079637050628662109375f,
 pio2_lo = -4.37113900018624283e-8f,
 pio4_hi = 0.785398185253143310546875f,
-	/* coefficient for R(x^2) */
-pS0 =  1.6666667163e-01, /* 0x3e2aaaab */
-pS1 = -3.2556581497e-01, /* 0xbea6b090 */
-pS2 =  2.0121252537e-01, /* 0x3e4e0aa8 */
-pS3 = -4.0055535734e-02, /* 0xbd241146 */
-pS4 =  7.9153501429e-04, /* 0x3a4f7f04 */
-pS5 =  3.4793309169e-05, /* 0x3811ef08 */
-qS1 = -2.4033949375e+00, /* 0xc019d139 */
-qS2 =  2.0209457874e+00, /* 0x4001572d */
-qS3 = -6.8828397989e-01, /* 0xbf303361 */
-qS4 =  7.7038154006e-02; /* 0x3d9dc62e */
+	// coefficient for R(x^2)
+pS0 =  1.6666667163e-01f, // 0x3e2aaaab
+pS1 = -3.2556581497e-01f, // 0xbea6b090
+pS2 =  2.0121252537e-01f, // 0x3e4e0aa8
+pS3 = -4.0055535734e-02f, // 0xbd241146
+pS4 =  7.9153501429e-04f, // 0x3a4f7f04
+pS5 =  3.4793309169e-05f, // 0x3811ef08
+qS1 = -2.4033949375e+00f, // 0xc019d139
+qS2 =  2.0209457874e+00f, // 0x4001572d
+qS3 = -6.8828397989e-01f, // 0xbf303361
+qS4 =  7.7038154006e-02f; // 0x3d9dc62e
+*/
 
 /// pS0-pS5, qS1-qS4, pio2_hi, pio2_lo, pio4_hi, one
 const uint32_t table_const_asin[14]={
@@ -445,21 +523,21 @@ float asin_f(float value)
 	int_fast8_t sign;
 	float* tab; tab = (float*) table_const_asin;
 
-	union float_raw Ftemp;
-	Ftemp.f_raw = value; sign = Ftemp.sign;
-	Ftemp.u_raw &= 0x7fffffff;
+	union float_raw asi;
+	asi.f_raw = value; sign = asi.sign;
+	asi.sign = 0;
 
-	if(Ftemp.u_raw == 0x3f800000) /// asin(1)=+-pi/2 with inexact
+	if(asi.u_raw == 0x3f800000) /// asin(1)=+-pi/2 with inexact
 	    {
-            Ftemp.f_raw = PI/2.0f;
-            Ftemp.sign = sign;
-            return Ftemp.f_raw;
-        }else if(Ftemp.u_raw > 0x3f800000) /// |value|>= 1
+            asi.f_raw = PI/2.0f;
+            asi.sign = sign;
+            return asi.f_raw;
+        }else if(asi.u_raw > 0x3f800000) /// |value|>= 1
         {
-            Ftemp.u_raw |= 0xFFF << 20 ; return Ftemp.f_raw;		/// asin(|value|>1) is NaN
-        }else if (Ftemp.u_raw < 0x3f000000) /// |value|<0.5
+            asi.u_raw |= 0xFFF << 20 ; return asi.f_raw;		/// asin(|value|>1) is NaN
+        }else if (asi.u_raw < 0x3f000000) /// |value|<0.5
         {
-            if(Ftemp.u_raw < 0x32000000) /// if |value| < 7.4505806E-9
+            if(asi.u_raw < 0x32000000) /// if |value| < 7.4505806E-9
             {
                 return value; /// return value with inexact if value!=0
             }else
@@ -472,27 +550,27 @@ float asin_f(float value)
             }
         }else;
 	/// 1> |value|>= 0.5
-	wer = tab[13] - Ftemp.f_raw;
+	wer = tab[13] - asi.f_raw;
 	rep = wer * 0.5f;
 	pif = rep*(tab[0]+rep*(tab[1]+rep*(tab[2]+rep*(tab[3]+rep*(tab[4]+rep*tab[5])))));
 	qif = tab[13]+rep*(tab[6]+rep*(tab[7]+rep*(tab[8]+rep*tab[9])));
 	sem = sqrt_f(rep);
-	if(Ftemp.u_raw >= 0x3F79999A) /// if |value| > 0.975
+	if(asi.u_raw >= 0x3F79999A) /// if |value| > 0.975
 	    {
             wer = pif / qif;
             rep = tab[10] - ((float)2.0 * (sem + sem * wer) - tab[11]);
         }else
         {
 
-	    Ftemp.f_raw = sem;
-        Ftemp.u_raw &= 0xfffff000;
-	    cem  = (rep - Ftemp.f_raw * Ftemp.f_raw) / (sem + Ftemp.f_raw);
-	    rem  = pif / qif;
-	    pif  = (float)2.0f * sem * rem - (tab[11] - (float)2.0f * cem);
-	    qif  = tab[12] - (float)2.0f * Ftemp.f_raw;
-	    rep  = tab[12] - (pif - qif);
-	}
-	if(sign != 0) return rep; else return -rep;
+            asi.f_raw = sem;
+            asi.u_raw &= 0xfffff000;
+            cem  = (rep - asi.f_raw * asi.f_raw) / (sem + asi.f_raw);
+            rem  = pif / qif;
+            pif  = (float)2.0f * sem * rem - (tab[11] - (float)2.0f * cem);
+            qif  = tab[12] - (float)2.0f * asi.f_raw;
+            rep  = tab[12] - (pif - qif);
+        };
+    if(sign != 0) return -rep; else return rep;
 }
 
 
