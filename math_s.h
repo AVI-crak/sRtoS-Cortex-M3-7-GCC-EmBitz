@@ -1,6 +1,6 @@
 
 /// древнее зло на новый лад
-/// в процессе %0,2
+/// в процессе %0,3
 
 /// + MATH.H http://kazus.ru/forums/attachment.php?attachmentid=124138&d=1515955294
 /// + https://github.com/xboxfanj/math-neon
@@ -77,8 +77,22 @@ float fmod_f(float value, float divider)
 };
 
 
-//#define LN2 0.6931471805599453
-#define LN2_INV 1.4426950408889634073
+/// return |value|
+/// сбросить знак
+float abs_f(float value)
+{
+#if defined (__CM7_REV) || defined (__CM4_REV)
+    float rep;
+    asm volatile ("vabs.f32 %0,%1" : "=t"(rep) : "t"(value));
+    return rep;
+#else
+    union float_raw Ftemp;
+    Ftemp.f_raw = value;
+    Ftemp.sign = 0;
+    return Ftemp.f_raw;
+#endif
+};
+
 
 const float __expf_rng[2] = {
 	1.442695041f,
@@ -120,13 +134,6 @@ float exp_f(float value)
 	Ftemp.order += ord;
 	return Ftemp.f_raw;
 }
-
-
-
-
-
-/************************************************************/
-
 
 
 const float __log10f_lut[9] = {
@@ -216,7 +223,7 @@ float pow_f(float value,float degree)
 /// Извлечение квадратного корня value
 float sqrt_f(float value)
 {
-#ifdef __CM7_REV
+#if defined (__CM7_REV) || defined (__CM4_REV)
     float rep;
     asm volatile ("vsqrt.f32 %0,%1" : "=t"(rep) : "t"(value));
     return rep;
@@ -261,8 +268,7 @@ float sqrt_f(float value)
 float fact_f(float value)
 {
     float ret = 1.0f;
-    for (float i=1.0f; i <= value; i++)
-        ret *= i;
+    for (float i=1.0f; i <= value; i++) ret *= i;
     return ret;
 }
 
@@ -272,31 +278,17 @@ float deg_rad(float value_deg)
 {
     float rad;
     rad = value_deg;
-    if (rad < 0) rad *= -1.0f; else;
-    if (rad > 360.0f) rad = (fmod_f(rad * (PI/180.0f), PI*2.0f ));
+    if ((rad > 360.0f)||(rad < -360.0f))  rad = (fmod_f(rad * (PI/180.0f), PI*2.0f ));
         else rad *= (PI/180.0f);
-   // if (rad >= PI) rad -= 2*PI; else;
     return rad;
 }
 
 /// tab = 1.0f; s = 2.0f;
-/// (tab *= s++; tab *= s++; x(n) = -1.0f/tab;)
-const float table_const_sin[14] =
+/// (tab *= s++; tab *= s++;) x(n) = -1.0f/tab;
+const uint32_t table_const_factorial[14] =
 {
-    -0.16666667163372039794921875f,
-    0.008333333767950534820556640625f,
-    -0.000198412701138295233249664306640625f,
-    0.000002755731884462875314056873321533203125f,
-    -2.50521079436794025241397321224212646484e-8f,
-    1.605904437207428259171138051897287368774e-10f,
-    -7.64716415191379894622514257207512855529e-13f,
-    2.811457358966370362329811882773356046527e-15f,
-    -8.22063590565713390371886670759948856357e-18f,
-    1.957294152468580795866857045817166493861e-20f,
-    -3.86816998242036873569474607912135888376e-23f,
-    6.446949724181581677925054274037088155408e-26f,
-    -9.18368920810427000429190050045006257407e-29f,
-    1.130996129721344896583330812479351289909e-31f,
+0xBE2AAAAB, 0x3C088889, 0xB9500D01, 0x3638EF1D, 0xB2D7322B, 0x2F309231, 0xAB573FA0, 0x274A963C, 0xA317A4DB, 0x1EB8DC78,
+0x9A3B0DA0, 0x159F9E66, 0x90E8D58D, 0x0C12CFCB,
 };
 
 /// error 0,0%, 8~14 steps(8-10-12-14)
@@ -304,18 +296,22 @@ const float table_const_sin[14] =
 float sin_f(float value_rad)
 {
     float rep, ret, rev;
-    if (value_rad > PI) rep = -2.0f*PI + value_rad; else rep = value_rad;
+    if (value_rad > PI) rep = -2.0f*PI + value_rad;
+        else if (value_rad < -PI) rep = 2.0f*PI + value_rad;
+        else rep = value_rad;
+    float* tab; tab = (float*) table_const_factorial;
     ret = rep; rev = rep * rep;
     int32_t nex = 0;
     do
     {
         ret *= rev;
-        rep += ret * table_const_sin[nex++];
+        rep += ret * tab[nex++];
     }while (nex != 14);
     return rep;
 }
 
-const uint32_t  test_tab[256]={
+/// table sin 0:pi/2
+const uint32_t  table_const_sin_0_pi05[256]={
 0x00000000, 0x3BC9D961, 0x3C49D866, 0x3C976113, 0x3CC9D47A, 0x3CFC45EC, 0x3D175A75, 0x3D30907B, 0x3D49C4CC, 0x3D62F725,
 0x3D7C274B, 0x3D8AAA7F, 0x3D973FFF, 0x3DA3D407, 0x3DB06677, 0x3DBCF733, 0x3DC98616, 0x3DD61305, 0x3DE29DE1, 0x3DEF2688,
 0x3DFBACDC, 0x3E04185F, 0x3E0A5908, 0x3E109859, 0x3E16D642, 0x3E1D12B3, 0x3E234DA0, 0x3E2986F5, 0x3E2FBEA4, 0x3E35F4A0,
@@ -349,24 +345,20 @@ const uint32_t  test_tab[256]={
 float sin_f_fast(float value_rad)
 {
     float res, rrg, fdf, sign; int32_t nxi;
-    float* tab; tab = (float*) test_tab;
-    if ( value_rad > PI ) {value_rad = 2.0f*PI - value_rad; sign = -1.0f;} else sign = 1.0f;
-
-
-    if (value_rad > (PI/2.0f)) value_rad = PI - value_rad; else;
-
-
+    float* tab; tab = (float*) table_const_sin_0_pi05; sign = 1.0f;
+    if ( value_rad < 0 ) {value_rad = 0.0f - value_rad; sign *= -1.0f;} else;
+    if ( value_rad > PI ) {value_rad = 2.0f*PI - value_rad; sign *= -1.0f;} else;
+    if (value_rad > (PI/2.0f)) value_rad = PI - value_rad; else; /// value 0:pi/2
     rrg = value_rad * ((1/(PI/2)) * 255.0f); /// 255.0f = the size of the array of constants of sin (0:pi/2)
     nxi = (int32_t)rrg; rrg -= (float)nxi ;
     res =  rrg * tab[nxi+1] + (1.0f - rrg) * tab[nxi]
-            + ( (tab[nxi+1]-tab[nxi]) * (0.25f-(rrg-0.5)*(rrg-0.5)) / (512.0f) ); // + coincidence
+            + ( (tab[nxi+1]-tab[nxi]) * (0.25f-(0.5f-rrg)*(0.5f-rrg)) / (512.0f) ); /// + coincidence
     return (res * sign);
 }
 
 /// cos input is radian 0:+2pi, output 1.0:-1.0.
 float cos_f(float value_rad)
 {
-    if ( value_rad < 0.0f ) value_rad *= -1.0f; else;
     if ((value_rad + PI/2.0f) > 2.0f*PI) return sin_f(value_rad - 1.5f*PI);
     else return sin_f(value_rad + PI/2.0f);
 }
@@ -374,7 +366,6 @@ float cos_f(float value_rad)
 /// cos input is radian 0:+2pi, output 1.0:-1.0.
 float cos_f_fast(float value_rad)
 {
-    if ( value_rad < 0.0f ) value_rad *= -1.0f; else;
     if ((value_rad + PI/2.0f) > 2.0f*PI) return sin_f_fast(value_rad - 1.5f*PI);
     else return sin_f_fast(value_rad + PI/2.0f);
 }
@@ -399,9 +390,110 @@ double sin_d(double value_rad)
 
 
 
+/// error 0,0%, 8~14 steps(8-10-12-14)
+/// tan input is radian 0:+2pi, output min:max.
+float tan_f(float value_rad)
+{
+    float rep, rep_c, ret, ret_c, rev, rev_c;
+    if (value_rad > PI) rep = -2.0f*PI + value_rad; else rep = value_rad;
+    if (value_rad < -PI) rep = 2.0f*PI + value_rad; else rep = value_rad;
+    if ((rep == (PI/2.0f))||(rep == (-PI/2.0f))) return 1.0e+36;
+    if ((rep + PI/2.0f) > 2.0f*PI) rep_c = rep - (1.5f*PI);
+        else rep_c = rep + (PI/2.0f);
+
+    ret = rep; rev = rep * rep;
+    ret_c = rep_c; rev_c = rep_c * rep_c;
+    int32_t nex = 0;
+    float* tab; tab = (float*) table_const_factorial;
+    do
+    {
+        ret *= rev; ret_c *= rev_c;
+        rep += ret * tab[nex];
+        rep_c += ret_c * tab[nex++];
+    }while (nex != 14); rep /= rep_c;
+    return rep;
+}
 
 
+one =  1.0000000000e+00, /* 0x3F800000 */
+huge =  1.000e+30,
+pio2_hi = 1.57079637050628662109375f,
+pio2_lo = -4.37113900018624283e-8f,
+pio4_hi = 0.785398185253143310546875f,
+	/* coefficient for R(x^2) */
+pS0 =  1.6666667163e-01, /* 0x3e2aaaab */
+pS1 = -3.2556581497e-01, /* 0xbea6b090 */
+pS2 =  2.0121252537e-01, /* 0x3e4e0aa8 */
+pS3 = -4.0055535734e-02, /* 0xbd241146 */
+pS4 =  7.9153501429e-04, /* 0x3a4f7f04 */
+pS5 =  3.4793309169e-05, /* 0x3811ef08 */
+qS1 = -2.4033949375e+00, /* 0xc019d139 */
+qS2 =  2.0209457874e+00, /* 0x4001572d */
+qS3 = -6.8828397989e-01, /* 0xbf303361 */
+qS4 =  7.7038154006e-02; /* 0x3d9dc62e */
 
+/// pS0-pS5, qS1-qS4, pio2_hi, pio2_lo, pio4_hi, one
+const uint32_t table_const_asin[14]={
+0x3e2aaaab, 0xbea6b090, 0x3e4e0aa8, 0xbd241146, 0x3a4f7f04, 0x3811ef08, 0xc019d139, 0x4001572d, 0xbf303361, 0x3d9dc62e,
+0x3fc90fdb, 0xb33bbd2e, 0x3f490fdb, 0x3F800000,
+};
+
+
+float asin_f(float value)
+{
+	float rep,wer,pif,qif,cem,rem,sem;
+	int_fast8_t sign;
+	float* tab; tab = (float*) table_const_asin;
+
+	union float_raw Ftemp;
+	Ftemp.f_raw = value; sign = Ftemp.sign;
+	Ftemp.u_raw &= 0x7fffffff;
+
+	if(Ftemp.u_raw == 0x3f800000) /// asin(1)=+-pi/2 with inexact
+	    {
+            Ftemp.f_raw = PI/2.0f;
+            Ftemp.sign = sign;
+            return Ftemp.f_raw;
+        }else if(Ftemp.u_raw > 0x3f800000) /// |value|>= 1
+        {
+            Ftemp.u_raw |= 0xFFF << 20 ; return Ftemp.f_raw;		/// asin(|value|>1) is NaN
+        }else if (Ftemp.u_raw < 0x3f000000) /// |value|<0.5
+        {
+            if(Ftemp.u_raw < 0x32000000) /// if |value| < 7.4505806E-9
+            {
+                return value; /// return value with inexact if value!=0
+            }else
+            {
+                rep = value*value;
+                pif = rep*(tab[0]+rep*(tab[1]+rep*(tab[2]+rep*(tab[3]+rep*(tab[4]+rep*tab[5])))));
+                qif = tab[13]+rep*(tab[6]+rep*(tab[7]+rep*(tab[8]+rep*tab[9])));
+                wer = pif/qif;
+                return value+value*wer;
+            }
+        }else;
+	/// 1> |value|>= 0.5
+	wer = tab[13] - Ftemp.f_raw;
+	rep = wer * 0.5f;
+	pif = rep*(tab[0]+rep*(tab[1]+rep*(tab[2]+rep*(tab[3]+rep*(tab[4]+rep*tab[5])))));
+	qif = tab[13]+rep*(tab[6]+rep*(tab[7]+rep*(tab[8]+rep*tab[9])));
+	sem = sqrt_f(rep);
+	if(Ftemp.u_raw >= 0x3F79999A) /// if |value| > 0.975
+	    {
+            wer = pif / qif;
+            rep = tab[10] - ((float)2.0 * (sem + sem * wer) - tab[11]);
+        }else
+        {
+
+	    Ftemp.f_raw = sem;
+        Ftemp.u_raw &= 0xfffff000;
+	    cem  = (rep - Ftemp.f_raw * Ftemp.f_raw) / (sem + Ftemp.f_raw);
+	    rem  = pif / qif;
+	    pif  = (float)2.0f * sem * rem - (tab[11] - (float)2.0f * cem);
+	    qif  = tab[12] - (float)2.0f * Ftemp.f_raw;
+	    rep  = tab[12] - (pif - qif);
+	}
+	if(sign != 0) return rep; else return -rep;
+}
 
 
 
@@ -424,24 +516,6 @@ double sin_d(double value_rad)
 
 
 /*
-////////////////////////////////////////////////////////////////////////////
-//   float tan(float x)
-////////////////////////////////////////////////////////////////////////////
-// Description : returns the tangent value of the angle x, which is in radian
-// Date : 9/20/2001
-//
-float tan(float x)
-{
-   float c, s;
-
-   c = cos(x);
-   if (c == 0.0)
-      return (1.0e+36);
-
-   s = sin(x);
-   return(s/c);
-}
-
 
 float const pas[3] = {0.49559947, -4.6145309, 5.6036290};
 float const qas[3] = {1.0000000,  -5.5484666, 5.6036290};
