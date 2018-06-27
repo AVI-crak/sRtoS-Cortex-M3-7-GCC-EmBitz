@@ -169,7 +169,8 @@ float abs_f(float value)
 /// ошибка
 float error_value(float x, float y)
 {
-    if (x>y) return abs_f(x-y);else return abs_f(y-x);
+    if (x>y) return abs_f(x-y);
+        else return abs_f(y-x);
 };
 
 const float __expf_rng[2] = {
@@ -414,7 +415,7 @@ const uint32_t  table_const_sin_0_pi05[256]={
 0x3F7A12BB, 0x3F7A67E1, 0x3F7ABA98, 0x3F7B0AE1, 0x3F7B58B7, 0x3F7BA420, 0x3F7BED15, 0x3F7C3397, 0x3F7C77A7, 0x3F7CB944,
 0x3F7CF869, 0x3F7D351B, 0x3F7D6F57, 0x3F7DA71E, 0x3F7DDC6C, 0x3F7E0F44, 0x3F7E3FA5, 0x3F7E6D8D, 0x3F7E98FD, 0x3F7EC1F1,
 0x3F7EE86E, 0x3F7F0C72, 0x3F7F2DFA, 0x3F7F4D09, 0x3F7F699D, 0x3F7F83B2, 0x3F7F9B4F, 0x3F7FB06F, 0x3F7FC315, 0x3F7FD33E,
-0x3F7FE0EA, 0x3F7FEC1C, 0x3F7FF4D0, 0x3F7FFB07, 0x3F7FFEC1, 0x3F7FFFFF,};
+0x3F7FE0EA, 0x3F7FEC1C, 0x3F7FF4D0, 0x3F7FFB07, 0x3F7FFEC1, 0x3F800000,};
 
 
 /// error 0,0002%, 0,0064% coincidence of
@@ -492,88 +493,146 @@ float tan_f(float value_rad)
 }
 
 /*
-one =  1.0000000000e+00f, // 0x3F800000
+one =  1.0000000000e+00f, // 0x3F800000  [10]
 huge =  1.000e+30f,
-pio2_hi = 1.57079637050628662109375f,
-pio2_lo = -4.37113900018624283e-8f,
-pio4_hi = 0.785398185253143310546875f,
+asin
+pio2_hi = 1.57079637050628662109375f, // 0x3fc90fdb  [11]
+pio2_lo = -4.37113900018624283e-8f,  // 0xb33bbd2f ~ 0xb33bbd2e  [12]
+pio4_hi = 0.785398185253143310546875f, //0x3f490fdb [13]
+acos
+pio2_hic =  1.5707962513e+00, // 0x3fc90fda [14]
+pio2_loc =  7.5497894159e-08, // 0x33a22168 [15]
+
 	// coefficient for R(x^2)
-pS0 =  1.6666667163e-01f, // 0x3e2aaaab
-pS1 = -3.2556581497e-01f, // 0xbea6b090
-pS2 =  2.0121252537e-01f, // 0x3e4e0aa8
-pS3 = -4.0055535734e-02f, // 0xbd241146
-pS4 =  7.9153501429e-04f, // 0x3a4f7f04
-pS5 =  3.4793309169e-05f, // 0x3811ef08
-qS1 = -2.4033949375e+00f, // 0xc019d139
-qS2 =  2.0209457874e+00f, // 0x4001572d
-qS3 = -6.8828397989e-01f, // 0xbf303361
-qS4 =  7.7038154006e-02f; // 0x3d9dc62e
+pS0 =  1.6666667163e-01f, // 0x3e2aaaab  [5]
+pS1 = -3.2556581497e-01f, // 0xbea6b090  [4]
+pS2 =  2.0121252537e-01f, // 0x3e4e0aa8  [3]
+pS3 = -4.0055535734e-02f, // 0xbd241146  [2]
+pS4 =  7.9153501429e-04f, // 0x3a4f7f04  [1]
+pS5 =  3.4793309169e-05f, // 0x3811ef08  [0]
+qS1 = -2.4033949375e+00f, // 0xc019d139  [9]
+qS2 =  2.0209457874e+00f, // 0x4001572d  [8]
+qS3 = -6.8828397989e-01f, // 0xbf303361  [7]
+qS4 =  7.7038154006e-02f; // 0x3d9dc62e  [6]
 */
 
-/// pS0-pS5, qS1-qS4, pio2_hi, pio2_lo, pio4_hi, one
-const uint32_t table_const_asin[14]={
-0x3e2aaaab, 0xbea6b090, 0x3e4e0aa8, 0xbd241146, 0x3a4f7f04, 0x3811ef08, 0xc019d139, 0x4001572d, 0xbf303361, 0x3d9dc62e,
-0x3fc90fdb, 0xb33bbd2e, 0x3f490fdb, 0x3F800000,
+/// pS5-pS0, qS4-qS1, one, pio2_hi, pio2_lo, pio4_hi, pio2_hic, pio2_loc
+const uint32_t table_const_asin_acos[16]={
+0x3811ef08,0x3a4f7f04,0xbd241146,0x3e4e0aa8,0xbea6b090,0x3e2aaaab,0x3d9dc62e,0xbf303361,0x4001572d,0xc019d139,
+0x3F800000,0x3fc90fdb, 0xb33bbd2f, 0x3f490fdb, 0x3fc90fda, 0x33a22168,
 };
 
-
+/// in -1.0f:+1.0f, out 0:2pi
 float asin_f(float value)
 {
 	float rep,wer,pif,qif,cem,rem,sem;
-	int_fast8_t sign;
-	float* tab; tab = (float*) table_const_asin;
-
+	int_fast8_t sign, nix;
+	float* tab; tab = (float*) table_const_asin_acos;
 	union float_raw asi;
 	asi.f_raw = value; sign = asi.sign;
 	asi.sign = 0;
-
-	if(asi.u_raw == 0x3f800000) /// asin(1)=+-pi/2 with inexact
+	if(asi.u_raw == 0x3F800000)             /// asin(1)=+-pi/2 with inexact
 	    {
             asi.f_raw = PI/2.0f;
             asi.sign = sign;
             return asi.f_raw;
-        }else if(asi.u_raw > 0x3f800000) /// |value|>= 1
+        }else if(asi.u_raw > 0x3F800000)    /// |value|>= 1
         {
-            asi.u_raw |= 0xFFF << 20 ; return asi.f_raw;		/// asin(|value|>1) is NaN
-        }else if (asi.u_raw < 0x3f000000) /// |value|<0.5
+            asi.u_raw |= 0x01FF << 22;
+            return asi.f_raw;               /// asin(|value|>1) is NaN
+        }else if (asi.u_raw < 0x3f000000)   /// |value|<0.5
         {
-            if(asi.u_raw < 0x32000000) /// if |value| < 7.4505806E-9
+            if(asi.u_raw < 0x32000000)      /// if |value| < 7.4505806E-9
             {
-                return value; /// return value with inexact if value!=0
+                return value;               /// return value with inexact if value!=0
             }else
             {
-                rep = value*value;
-                pif = rep*(tab[0]+rep*(tab[1]+rep*(tab[2]+rep*(tab[3]+rep*(tab[4]+rep*tab[5])))));
-                qif = tab[13]+rep*(tab[6]+rep*(tab[7]+rep*(tab[8]+rep*tab[9])));
+                rep = value*value; nix = 0; pif = 0; qif = 0;
+                do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
+                do{ qif = (qif + tab[nix++]) * rep; }while (nix != 10);
+                qif += tab[nix];
                 wer = pif/qif;
                 return value+value*wer;
             }
         }else;
 	/// 1> |value|>= 0.5
-	wer = tab[13] - asi.f_raw;
-	rep = wer * 0.5f;
-	pif = rep*(tab[0]+rep*(tab[1]+rep*(tab[2]+rep*(tab[3]+rep*(tab[4]+rep*tab[5])))));
-	qif = tab[13]+rep*(tab[6]+rep*(tab[7]+rep*(tab[8]+rep*tab[9])));
+	wer = tab[10] - asi.f_raw;
+	rep = wer * 0.5f; nix = 0; pif = 0; qif = 0;
+    do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
+    do{ qif = (qif + tab[nix++]) * rep; }while (nix != 10);
+    qif += tab[nix];
 	sem = sqrt_f(rep);
-	if(asi.u_raw >= 0x3F79999A) /// if |value| > 0.975
+	if(asi.u_raw >= 0x3F79999A)             /// if |value| > 0.975
 	    {
             wer = pif / qif;
-            rep = tab[10] - ((float)2.0 * (sem + sem * wer) - tab[11]);
+            rep = tab[11] - ((float)2.0 * (sem + sem * wer) - tab[12]);
         }else
         {
-
             asi.f_raw = sem;
             asi.u_raw &= 0xfffff000;
             cem  = (rep - asi.f_raw * asi.f_raw) / (sem + asi.f_raw);
             rem  = pif / qif;
-            pif  = (float)2.0f * sem * rem - (tab[11] - (float)2.0f * cem);
-            qif  = tab[12] - (float)2.0f * asi.f_raw;
-            rep  = tab[12] - (pif - qif);
+            pif  = (float)2.0f * sem * rem - (tab[12] - (float)2.0f * cem);
+            qif  = tab[13] - (float)2.0f * asi.f_raw;
+            rep  = tab[13] - (pif - qif);
         };
     if(sign != 0) return -rep; else return rep;
 }
 
-
+/// in -1.0f:+1.0f, out 0:2pi
+float acos_f(float value)
+{
+	float rep,pif,qif,wer,sem,sif,cif;
+    int_fast8_t sign, nix;
+	float* tab; tab = (float*) table_const_asin_acos;
+	union float_raw aco;
+	aco.f_raw = value; sign = aco.sign;
+	aco.sign = 0;
+	if(aco.u_raw == 0x3f800000)             /// |value|==1
+	    {
+            if(sign == 0) return 0.0;	    /// acos(1) = 0
+                else return PI;	            /// acos(-1)= pi
+        } else if(aco.u_raw > 0x3f800000)   /// |value| >= 1
+        {
+            aco.u_raw |= 0x01FF << 22;
+            return aco.f_raw;               /// acos(|value|>1) is NaN
+        };
+	if(aco.u_raw<0x3f000000)                /// |value| < 0.5
+	    {
+            if(aco.u_raw<=0x23000000)       /// if|value|<2**-57
+            {
+                aco.f_raw = PI/2.0f; aco.sign = sign;
+                return aco.f_raw;
+            } else;
+            rep = value*value; nix = 0; pif = 0; qif = 0;
+            do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
+            do{ qif = (qif + tab[nix++]) * rep; }while (nix != 10);
+            qif += tab[nix]; wer = pif/qif;
+            return tab[14] - (value - (tab[15]-value * wer));
+        } else if (sign != 0)                /// value < -0.5
+        {
+            rep = (tab[10] + value) * 0.5f; nix = 0; pif = 0; qif = 0;
+            do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
+            do{ qif = (qif + tab[nix++]) * rep; }while (nix != 10);
+            qif += tab[nix]; wer = pif/qif;
+            sif = sqrt_f(rep);
+            sem = wer*sif - tab[15];
+            return (PI - 2.0 * (sif + sem));
+        } else                              /// value > 0.5
+        {
+            rep = (tab[10] - value ) * 0.5f;
+            sif = sqrt_f(rep);
+            aco.f_raw = sif;
+            aco.u_raw &= 0xfffff000;
+            cif  = (rep-aco.f_raw * aco.f_raw) / (sif + aco.f_raw);
+            nix = 0; pif = 0; qif = 0;
+            do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
+            do{ qif = (qif + tab[nix++]) * rep; }while (nix != 10);
+            qif += tab[nix]; wer = pif/qif;
+            sem = wer * sif + cif;
+            return (2.0f * (aco.f_raw + sem));
+        };
+}
 
 
 ////////////////////////////// Trig Functions //////////////////////////////
