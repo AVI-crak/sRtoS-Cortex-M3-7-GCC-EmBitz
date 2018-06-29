@@ -1,6 +1,6 @@
 
 /// древнее зло на новый лад
-/// в процессе %0,2
+/// в процессе %0,3
 
 /// + MATH.H http://kazus.ru/forums/attachment.php?attachmentid=124138&d=1515955294
 /// + https://github.com/xboxfanj/math-neon
@@ -354,10 +354,10 @@ float fact_f(float value)
 /// Перевод градусов в радианы
 float deg_rad(float value_deg)
 {
-    float rad;
-    rad = abs_f( value_deg * 0.00277777784503996372222900390625f);// (1/360)
-    if (rad > 0.0f)  rad = fmod_f(value_deg * 0.01745329238474369049072265625f, 6.283185482025146484375f );  // PI*2.0f
-        else rad = value_deg * 0.01745329238474369049072265625f; //(PI/180.0f);
+    float rad; int32_t tex;
+    tex = (int32_t) (value_deg / 360.0f);// (1/360)
+    if (tex != 0)  rad = fmod_f(value_deg / 57.295780181884765625f, 6.283185482025146484375f );  // PI*2.0f
+        else rad = value_deg / 57.295780181884765625f; //(PI/180.0f);
     return rad;
 }
 
@@ -377,6 +377,11 @@ float sin_f(float value_rad)
     if (value_rad > PI) rep = -2.0f*PI + value_rad;
         else if (value_rad < -PI) rep = 2.0f*PI + value_rad;
         else rep = value_rad;
+    if  (abs_f( abs_f(rep) - 1.5707962512969970703125f) < 7.5497894159e-08f)
+        return ((float)((int32_t)rep));
+    if  (abs_f( abs_f(rep) - 3.141592502593994140625f) < 1.5099567e-7f)
+        return 0.0f;
+
     float* tab; tab = (float*) table_const_factorial;
     ret = rep; rev = rep * rep;
     int32_t nex = 0;
@@ -427,7 +432,7 @@ float sin_f_fast(float value_rad)
     if ( value_rad < 0 ) {value_rad = 0.0f - value_rad; sign *= -1.0f;} else;
     if ( value_rad > PI ) {value_rad = 2.0f*PI - value_rad; sign *= -1.0f;} else;
     if (value_rad > (PI/2.0f)) value_rad = PI - value_rad; else; /// value 0:pi/2
-    rrg = value_rad * ((1/(PI/2)) * 255.0f); /// 255.0f = the size of the array of constants of sin (0:pi/2)
+    rrg = value_rad * 162.338043212890625f;//((1/(PI/2)) * 255.0f); /// 255.0f = the size of the array of constants of sin (0:pi/2)
     nxi = (int32_t)rrg; rrg -= (float)nxi ;
     res =  rrg * tab[nxi+1] + (1.0f - rrg) * tab[nxi]
             + ( (tab[nxi+1]-tab[nxi]) * (0.25f-(0.5f-rrg)*(0.5f-rrg)) / (512.0f) ); /// + coincidence
@@ -554,8 +559,7 @@ float asin_f(float value)
                 wer = pif/qif;
                 return value+value*wer;
             }
-        }else;
-	/// 1> |value|>= 0.5
+        }else;                              /// 1> |value|>= 0.5
 	wer = tab[10] - asi.f_raw;
 	rep = wer * 0.5f; nix = 0; pif = 0; qif = 0;
     do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
@@ -594,7 +598,7 @@ float acos_f(float value)
                 else return PI;	            /// acos(-1)= pi
         } else if(aco.u_raw > 0x3f800000)   /// |value| >= 1
         {
-            aco.u_raw |= 0x01FF << 22;
+            aco.u_raw = 0x01FF << 22;
             return aco.f_raw;               /// acos(|value|>1) is NaN
         };
 	if(aco.u_raw<0x3f000000)                /// |value| < 0.5
@@ -633,6 +637,113 @@ float acos_f(float value)
             return (2.0f * (aco.f_raw + sem));
         };
 }
+
+
+
+
+
+
+
+const float atanhi[] = {
+  4.6364760399e-01f, /* atan(0.5)hi 0x3eed6338 */
+  7.8539812565e-01f, /* atan(1.0)hi 0x3f490fda */
+  9.8279368877e-01f, /* atan(1.5)hi 0x3f7b985e */
+  1.5707962513e+00f, /* atan(inf)hi 0x3fc90fda */
+};
+
+
+const float atanlo[] = {
+  5.0121582440e-09f, /* atan(0.5)lo 0x31ac3769 */
+  3.7748947079e-08f, /* atan(1.0)lo 0x33222168 */
+  3.4473217170e-08f, /* atan(1.5)lo 0x33140fb4 */
+  7.5497894159e-08f, /* atan(inf)lo 0x33a22168 */
+};
+
+
+const uint32_t table_const_aT[11] = {
+    0x3c8569d7, //[10] 1.6285819933e-02f
+    0x3d4bda59, //[8]  4.9768779427e-02f
+    0x3d886b35, //[6]  6.6610731184e-02f
+    0x3dba2e6e, //[4]  9.0908870101e-02f
+    0x3e124925, //[2]  1.4285714924e-01f
+    0x3eaaaaaa, //[0]  3.3333334327e-01f
+    0xbd15a221, //[9] -3.6531571299e-02f
+    0xbd6ef16b, //[7] -5.8335702866e-02f
+    0xbd9d8795, //[5] -7.6918758452e-02f
+    0xbde38e38, //[3] -1.1111110449e-01f
+    0xbe4ccccd //[1] -2.0000000298e-01f
+};
+
+
+
+static const float huge   = 1.0e30f;
+
+
+float atan_f(float value)
+{
+	float rep,pif,qif,zik;
+    int_fast8_t sign, idx;
+    float* tab; tab = (float*) table_const_aT;
+	union float_raw ata;
+	ata.f_raw = value; sign = ata.sign;
+	ata.sign = 0;
+	if(ata.u_raw >= 0x50800000)             /// if |value| >= 2^34
+    {
+        if((ata.order == 0xFF)&&(ata.massa !=0))
+        {
+            ata.u_raw = 0x01FF << 22; ata.sign = sign;
+            return ata.f_raw;               /// NaN
+        }else;
+        if(sign != 0)
+            return  (-atanhi[3] - atanlo[3]);
+        else
+            return (+atanhi[3]+atanlo[3]);
+    }else if (ata.u_raw  < 0x3ee00000)      /// |value| < 0.4375
+	{
+	    if (ata.u_raw  < 0x31000000)        /// |value| < 2^-29
+	    {
+            if(1.0e30f + value > 1.0f)      /// raise inexact
+                return value;
+	    }else;
+	    idx = -1;
+	} else
+	{
+        value = ata.f_raw;
+        if (ata.u_raw  < 0x3f980000)        /// |value| < 1.1875
+        {
+            if (ata.u_raw  < 0x3f300000)    /// 7/16 <=|value|<11/16
+            {
+                idx = 0; value = (2.0f * value - 1.0f)/(2.0f + value);
+            }else                           /// 11/16<=|value|< 19/16
+            {
+                idx = 1; value  = (value - 1.0f)/(value + 1.0f);
+            }
+        } else
+        {
+            if (ata.u_raw  < 0x401c0000)    /// |value| < 2.4375
+            {
+                idx = 2; value  = (value - 1.5f)/(1.0f + 1.5f * value);
+            } else                          /// 2.4375 <= |value| < 2^66
+            {
+                idx = 3; value  = -1.0f / value;
+            };
+        };
+    };
+    /// end of argument reduction
+	zik = value * value;
+	rep = zik * zik;
+    /// break sum from i=0 to 10 tab[i]zik**(i+1) into odd and even poly
+	pif = zik * (tab[5] + rep * (tab[4] + rep * (tab[3] + rep * (tab[2] + rep * (tab[1] + rep * tab[0])))) );
+	qif = rep * (tab[10] + rep * (tab[9] + rep * (tab[8] + rep * (tab[7] + rep * tab[6]))) );
+	if (idx < 0) return value - value * (pif + qif);
+	else
+    {
+	    zik = atanhi[idx] - ((value * (pif + qif) - atanlo[idx]) - value);
+        if(sign != 0) return -zik; else return zik;
+	};
+}
+
+
 
 
 ////////////////////////////// Trig Functions //////////////////////////////
