@@ -744,6 +744,28 @@ float atan_f(float value)
 }
 
 
+/// Returns the angle in radians 0: 2pi
+/// Возвращает значение угла в радианах 0:2pi
+float atan2_f(float value_sin, float value_cos)
+{
+    union float_raw ata_si; union float_raw ata_co;
+    ata_si.f_raw = value_sin; ata_co.f_raw = value_cos;
+    int_fast8_t sign_si, sign_co; float rep;
+    sign_si = ata_si.sign; sign_co = ata_co.sign;
+    ata_si.sign = 0; ata_co.sign = 0;
+    if (ata_co.u_raw < 0x20000000)                  /// |co| < 1.0e-19
+    {
+        if (ata_si.u_raw < 0x20000000) return 0.0f; /// |si| < 1.0e-19
+        if (sign_si != 0) return 1.5f*PI; else return PI/2.0f;
+    }else if (ata_si.u_raw < 0x20000000)            /// |si| < 1.0e-19
+    {
+        if (sign_co != 0) return PI; else return 0.0f;
+    }else;
+    rep = atan_f( value_sin / value_cos);
+    if (sign_co != 0) return (PI + rep);
+        else if (sign_si != 0) return ( 2.0f*PI + rep);
+            else return (rep);
+}
 
 
 ////////////////////////////// Trig Functions //////////////////////////////
