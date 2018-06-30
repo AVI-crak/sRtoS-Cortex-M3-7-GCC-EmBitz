@@ -12,14 +12,21 @@
 
 #ifdef PI
 #undef  PI
+#undef  Pi
 #endif
 #include <stdint.h>
-#define PI     3.1415927410125732421875f
+#define PI      3.1415927410125732421875f   /// 0x40490fdb
+#define Pi      3.141592502593994140625f    /// 0x40490fda
+#define Pi_c    3.14159297943115234375f     /// 0x40490fdc
+#define Pi2     6.283185482025146484375     /// 0x40c90fdb
+//#define PIerror1_5  2.264936966867026058025658130645751953125E-7
 ///original pi 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679
 
+// 0x42652ee1 +-
+// 0x42652ee0 +
+// 0x42652ee2 -
 
-
-union float_raw
+union f__raw
 {
     struct
     {
@@ -27,7 +34,7 @@ union float_raw
         uint32_t order  :8;
         uint32_t sign   :1;
     };
-    uint32_t    u_raw;
+    int32_t     i_raw;
     float       f_raw;
 };
 
@@ -46,7 +53,7 @@ float ceil_f(float value)
 #else
 float ceil_f(float value)
 {
-    union float_raw Ftemp;
+    union f__raw Ftemp;
     Ftemp.f_raw = value;
     uint32_t err = 0;
     int_fast8_t ord = (int_fast8_t)Ftemp.order - 127;
@@ -55,9 +62,9 @@ float ceil_f(float value)
         ord = 23 - ord;
         if(ord > 0)
         {
-            err = Ftemp.u_raw;
-            Ftemp.u_raw = ((Ftemp.u_raw >>ord)<<ord);
-            err -= Ftemp.u_raw;
+            err = Ftemp.i_raw;
+            Ftemp.i_raw = ((Ftemp.i_raw >>ord)<<ord);
+            err -= Ftemp.i_raw;
             if (err != 0)
             {
                 if (Ftemp.sign == 0) return (Ftemp.f_raw + 1.0f);
@@ -81,7 +88,7 @@ static inline float floor_f(float value)
 #else
 float floor_f(float value)
 {
-    union float_raw Ftemp;
+    union f__raw Ftemp;
     Ftemp.f_raw = value;
     int_fast8_t ord = (int_fast8_t)Ftemp.order - 127;
     if (ord < 0) return 0.0f;
@@ -90,7 +97,7 @@ float floor_f(float value)
         ord = 23 - ord;
         if(ord > 0)
         {
-            Ftemp.u_raw = ((Ftemp.u_raw >>ord)<<ord);
+            Ftemp.i_raw = ((Ftemp.i_raw >>ord)<<ord);
         };
     };
     return Ftemp.f_raw;
@@ -111,7 +118,7 @@ static inline float round_f(float value)
 #else
 float round_f(float value)
 {
-    union float_raw Ftemp;
+    union f__raw Ftemp;
     Ftemp.f_raw = value;
     uint32_t err = 0;
     int_fast8_t ord = (int_fast8_t)Ftemp.order - 127;
@@ -120,9 +127,9 @@ float round_f(float value)
         ord = 23 - ord;
         if(ord > 0)
         {
-            err = Ftemp.u_raw;
-            Ftemp.u_raw = ((Ftemp.u_raw >>ord)<<ord);
-            err -= Ftemp.u_raw;
+            err = Ftemp.i_raw;
+            Ftemp.i_raw = ((Ftemp.i_raw >>ord)<<ord);
+            err -= Ftemp.i_raw;
             err *= 2; err >>= ord;
             if (err != 0)
             {
@@ -159,7 +166,7 @@ static inline float abs_f(float value)
 #else
 float abs_f(float value)
 {
-    union float_raw Ftemp;
+    union f__raw Ftemp;
     Ftemp.f_raw = value;
     Ftemp.sign = 0;
     return Ftemp.f_raw;
@@ -193,8 +200,8 @@ const float __expf_lut[8] = {
 /// Возведение числа E в степень value
 float exp_f(float value)
 {
-    union float_raw Ftemp;
-    if ( value > 88.7228317f) {Ftemp.u_raw = 0; Ftemp.order = 0xFF; return Ftemp.f_raw;};
+    union f__raw Ftemp;
+    if ( value > 88.7228317f) {Ftemp.i_raw = 0; Ftemp.order = 0xFF; return Ftemp.f_raw;};
 	float tmp1, tmp2, tmp3, tmp4, tmp5;
 	int8_t ord;
 
@@ -245,7 +252,7 @@ float log_f(float value, int_fast8_t base_2_10_e)
 {
 	float tmp1, tmp2, tmp3, tmp4, tmp5;
 	int8_t ord, ord1;
-	union float_raw Ftemp;
+	union f__raw Ftemp;
 	const float *_lut;
 	if (base_2_10_e != 10) _lut = __log_e_f_lut; else _lut = __log10f_lut;
 
@@ -314,10 +321,10 @@ float sqrt_f(float value)
  #ifdef magic_VRSQRTE
 	float tmp1, tmp2;
 	int32_t mas;
-	union float_raw Ftemp;
+	union f__raw Ftemp;
 	//fast invsqrt approx
 	Ftemp.f_raw = value;
-	Ftemp.u_raw = 0x5F3759DF - (Ftemp.u_raw >> 1);      //VRSQRTE
+	Ftemp.i_raw = 0x5F3759DF - (Ftemp.i_raw >> 1);      //VRSQRTE
 	tmp2 = value * Ftemp.f_raw;
 	tmp1 = (3.0f - tmp2 * Ftemp.f_raw) * 0.5f;          //VRSQRTS
 	Ftemp.f_raw = Ftemp.f_raw * tmp1;
@@ -327,10 +334,10 @@ float sqrt_f(float value)
 
 	//fast inverse approx
 	value = Ftemp.f_raw;
-	mas = 0x3F800000 - (Ftemp.u_raw & 0x7F800000);
-	Ftemp.u_raw = Ftemp.u_raw + mas;
+	mas = 0x3F800000 - (Ftemp.i_raw & 0x7F800000);
+	Ftemp.i_raw = Ftemp.i_raw + mas;
 	Ftemp.f_raw = 1.41176471f - 0.47058824f * Ftemp.f_raw;
-	Ftemp.u_raw = Ftemp.u_raw + mas;
+	Ftemp.i_raw = Ftemp.i_raw + mas;
 	tmp1 = 2.0f - Ftemp.f_raw * value;
 	Ftemp.f_raw = Ftemp.f_raw * tmp1;
 	tmp1 = 2.0f - Ftemp.f_raw * value;
@@ -354,10 +361,9 @@ float fact_f(float value)
 /// Перевод градусов в радианы
 float deg_rad(float value_deg)
 {
-    float rad; int32_t tex;
-    tex = (int32_t) (value_deg / 360.0f);// (1/360)
-    if (tex != 0)  rad = fmod_f(value_deg / 57.295780181884765625f, 6.283185482025146484375f );  // PI*2.0f
-        else rad = value_deg / 57.295780181884765625f; //(PI/180.0f);
+    float rad;
+    rad = fmod_f(value_deg, 360.0f);
+    rad /= (360.0f / Pi2);
     return rad;
 }
 
@@ -374,14 +380,11 @@ const uint32_t table_const_factorial[14] =
 float sin_f(float value_rad)
 {
     float rep, ret, rev;
-    if (value_rad > PI) rep = -2.0f*PI + value_rad;
-        else if (value_rad < -PI) rep = 2.0f*PI + value_rad;
-        else rep = value_rad;
-    if  (abs_f( abs_f(rep) - 1.5707962512969970703125f) < 7.5497894159e-08f)
-        return ((float)((int32_t)rep));
-    if  (abs_f( abs_f(rep) - 3.141592502593994140625f) < 1.5099567e-7f)
-        return 0.0f;
-
+    if (value_rad < 0) value_rad = value_rad + Pi2; else;
+    if (value_rad >= (PI+ Pi/2.0f)) value_rad -= Pi2;
+        else if (value_rad > Pi/2.0f) value_rad = PI - value_rad; else;
+    if  (abs_f(value_rad) < 1.0e-35 ) return value_rad;
+    rep = value_rad;
     float* tab; tab = (float*) table_const_factorial;
     ret = rep; rev = rep * rep;
     int32_t nex = 0;
@@ -424,34 +427,39 @@ const uint32_t  table_const_sin_0_pi05[256]={
 
 
 /// error 0,0002%, 0,0064% coincidence of
-/// sin input is radian 0:+2pi, output 1.0:-1.0.
+/// sin input is radian -2pi:+2pi, output 1.0:-1.0.
 float sin_f_fast(float value_rad)
 {
-    float res, rrg, fdf, sign; int32_t nxi;
-    float* tab; tab = (float*) table_const_sin_0_pi05; sign = 1.0f;
-    if ( value_rad < 0 ) {value_rad = 0.0f - value_rad; sign *= -1.0f;} else;
-    if ( value_rad > PI ) {value_rad = 2.0f*PI - value_rad; sign *= -1.0f;} else;
-    if (value_rad > (PI/2.0f)) value_rad = PI - value_rad; else; /// value 0:pi/2
-    rrg = value_rad * 162.338043212890625f;//((1/(PI/2)) * 255.0f); /// 255.0f = the size of the array of constants of sin (0:pi/2)
+    float res, rrg, fdf; int32_t nxi;
+    float* tab; tab = (float*) table_const_sin_0_pi05;
+    if (value_rad < 0) value_rad = value_rad + Pi2; else;
+    if (value_rad >= (PI+ Pi/2.0f)) value_rad -= Pi2;
+        else if (value_rad > Pi/2.0f) value_rad = PI - value_rad; else;
+    if  (abs_f(value_rad) < 1.0e-35 ) return value_rad;
+
+    rrg = abs_f(value_rad * 162.338043212890625f);//((1/(PI/2)) * 255.0f); /// 255.0f = the size of the array of constants of sin (0:pi/2)
     nxi = (int32_t)rrg; rrg -= (float)nxi ;
     res =  rrg * tab[nxi+1] + (1.0f - rrg) * tab[nxi]
             + ( (tab[nxi+1]-tab[nxi]) * (0.25f-(0.5f-rrg)*(0.5f-rrg)) / (512.0f) ); /// + coincidence
-    return (res * sign);
+    if (value_rad < 0) res *= -1.0f;else;
+    return res;
 }
 
-/// cos input is radian 0:+2pi, output 1.0:-1.0.
+/// cos input is radian -2pi:+2pi, output 1.0:-1.0.
 float cos_f(float value_rad)
 {
-    if ((value_rad + PI/2.0f) > 2.0f*PI) return sin_f(value_rad - 1.5f*PI);
-    else return sin_f(value_rad + PI/2.0f);
+    if ((value_rad + Pi/2.0f) >= Pi2) return sin_f(value_rad - (PI+ Pi/2.0f));
+    else return sin_f(value_rad + Pi/2.0f);
 }
 
 /// cos input is radian 0:+2pi, output 1.0:-1.0.
 float cos_f_fast(float value_rad)
 {
-    if ((value_rad + PI/2.0f) > 2.0f*PI) return sin_f_fast(value_rad - 1.5f*PI);
-    else return sin_f_fast(value_rad + PI/2.0f);
+    if ((value_rad + Pi/2.0f) >= Pi2) return sin_f_fast(value_rad - (PI+ Pi/2.0f));
+    else return sin_f_fast(value_rad + Pi/2.0f);
 }
+
+
 
 double sin_d(double value_rad)
 {
@@ -471,19 +479,19 @@ double sin_d(double value_rad)
 
 
 
-
-
 /// error 0,0%, 8~14 steps(8-10-12-14)
 /// tan input is radian 0:+2pi, output min:max.
 float tan_f(float value_rad)
 {
     float rep, rep_c, ret, ret_c, rev, rev_c;
-    if (value_rad > PI) rep = -2.0f*PI + value_rad; else rep = value_rad;
-    if (value_rad < -PI) rep = 2.0f*PI + value_rad; else rep = value_rad;
-    if ((rep == (PI/2.0f))||(rep == (-PI/2.0f))) return 1.0e+36;
-    if ((rep + PI/2.0f) > 2.0f*PI) rep_c = rep - (1.5f*PI);
-        else rep_c = rep + (PI/2.0f);
-
+    if (value_rad < 0) value_rad += Pi2; else;
+    if (value_rad >= (PI+ Pi/2.0f)) rep = value_rad - Pi2;
+        else if (value_rad > Pi/2.0f) rep = PI - value_rad;
+            else rep = value_rad;
+        printo( "  si=", rep );// monitor_print("\n");
+    if (abs_f(rep) >= (Pi/2.0f)) return 1.0e+36;
+    if (value_rad >= PI ) rep_c = (PI+ Pi/2.0f) - value_rad;
+        else rep_c = value_rad - Pi/2.0f; rep_c *=-1.0f;
     ret = rep; rev = rep * rep;
     ret_c = rep_c; rev_c = rep_c * rep_c;
     int32_t nex = 0;
@@ -533,21 +541,21 @@ float asin_f(float value)
 	float rep,wer,pif,qif,cem,rem,sem;
 	int_fast8_t sign, nix;
 	float* tab; tab = (float*) table_const_asin_acos;
-	union float_raw asi;
+	union f__raw asi;
 	asi.f_raw = value; sign = asi.sign;
 	asi.sign = 0;
-	if(asi.u_raw == 0x3F800000)             /// asin(1)=+-pi/2 with inexact
+	if(asi.i_raw == 0x3F800000)             /// asin(1)=+-pi/2 with inexact
 	    {
             asi.f_raw = PI/2.0f;
             asi.sign = sign;
             return asi.f_raw;
-        }else if(asi.u_raw > 0x3F800000)    /// |value|>= 1
+        }else if(asi.i_raw > 0x3F800000)    /// |value|>= 1
         {
-            asi.u_raw |= 0x01FF << 22;
+            asi.i_raw |= 0x01FF << 22;
             return asi.f_raw;               /// asin(|value|>1) is NaN
-        }else if (asi.u_raw < 0x3f000000)   /// |value|<0.5
+        }else if (asi.i_raw < 0x3f000000)   /// |value|<0.5
         {
-            if(asi.u_raw < 0x32000000)      /// if |value| < 7.4505806E-9
+            if(asi.i_raw < 0x32000000)      /// if |value| < 7.4505806E-9
             {
                 return value;               /// return value with inexact if value!=0
             }else
@@ -566,14 +574,14 @@ float asin_f(float value)
     do{ qif = (qif + tab[nix++]) * rep; }while (nix != 10);
     qif += tab[nix];
 	sem = sqrt_f(rep);
-	if(asi.u_raw >= 0x3F79999A)             /// if |value| > 0.975
+	if(asi.i_raw >= 0x3F79999A)             /// if |value| > 0.975
 	    {
             wer = pif / qif;
             rep = tab[11] - ((float)2.0 * (sem + sem * wer) - tab[12]);
         }else
         {
             asi.f_raw = sem;
-            asi.u_raw &= 0xfffff000;
+            asi.i_raw &= 0xfffff000;
             cem  = (rep - asi.f_raw * asi.f_raw) / (sem + asi.f_raw);
             rem  = pif / qif;
             pif  = (float)2.0f * sem * rem - (tab[12] - (float)2.0f * cem);
@@ -589,21 +597,21 @@ float acos_f(float value)
 	float rep,pif,qif,wer,sem,sif,cif;
     int_fast8_t sign, nix;
 	float* tab; tab = (float*) table_const_asin_acos;
-	union float_raw aco;
+	union f__raw aco;
 	aco.f_raw = value; sign = aco.sign;
 	aco.sign = 0;
-	if(aco.u_raw == 0x3f800000)             /// |value|==1
+	if(aco.i_raw == 0x3f800000)             /// |value|==1
 	    {
             if(sign == 0) return 0.0;	    /// acos(1) = 0
                 else return PI;	            /// acos(-1)= pi
-        } else if(aco.u_raw > 0x3f800000)   /// |value| >= 1
+        } else if(aco.i_raw > 0x3f800000)   /// |value| >= 1
         {
-            aco.u_raw = 0x01FF << 22;
+            aco.i_raw = 0x01FF << 22;
             return aco.f_raw;               /// acos(|value|>1) is NaN
         };
-	if(aco.u_raw<0x3f000000)                /// |value| < 0.5
+	if(aco.i_raw<0x3f000000)                /// |value| < 0.5
 	    {
-            if(aco.u_raw<=0x23000000)       /// if|value|<2**-57
+            if(aco.i_raw<=0x23000000)       /// if|value|<2**-57
             {
                 aco.f_raw = PI/2.0f; aco.sign = sign;
                 return aco.f_raw;
@@ -627,7 +635,7 @@ float acos_f(float value)
             rep = (tab[10] - value ) * 0.5f;
             sif = sqrt_f(rep);
             aco.f_raw = sif;
-            aco.u_raw &= 0xfffff000;
+            aco.i_raw &= 0xfffff000;
             cif  = (rep-aco.f_raw * aco.f_raw) / (sif + aco.f_raw);
             nix = 0; pif = 0; qif = 0;
             do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
@@ -684,23 +692,23 @@ float atan_f(float value)
 	float rep,pif,qif,zik;
     int_fast8_t sign, idx;
     float* tab; tab = (float*) table_const_aT;
-	union float_raw ata;
+	union f__raw ata;
 	ata.f_raw = value; sign = ata.sign;
 	ata.sign = 0;
-	if(ata.u_raw >= 0x50800000)             /// if |value| >= 2^34
+	if(ata.i_raw >= 0x50800000)             /// if |value| >= 2^34
     {
         if((ata.order == 0xFF)&&(ata.massa !=0))
         {
-            ata.u_raw = 0x01FF << 22; ata.sign = sign;
+            ata.i_raw = 0x01FF << 22; ata.sign = sign;
             return ata.f_raw;               /// NaN
         }else;
         if(sign != 0)
             return  (-atanhi[3] - atanlo[3]);
         else
             return (+atanhi[3]+atanlo[3]);
-    }else if (ata.u_raw  < 0x3ee00000)      /// |value| < 0.4375
+    }else if (ata.i_raw  < 0x3ee00000)      /// |value| < 0.4375
 	{
-	    if (ata.u_raw  < 0x31000000)        /// |value| < 2^-29
+	    if (ata.i_raw  < 0x31000000)        /// |value| < 2^-29
 	    {
             if(1.0e30f + value > 1.0f)      /// raise inexact
                 return value;
@@ -709,9 +717,9 @@ float atan_f(float value)
 	} else
 	{
         value = ata.f_raw;
-        if (ata.u_raw  < 0x3f980000)        /// |value| < 1.1875
+        if (ata.i_raw  < 0x3f980000)        /// |value| < 1.1875
         {
-            if (ata.u_raw  < 0x3f300000)    /// 7/16 <=|value|<11/16
+            if (ata.i_raw  < 0x3f300000)    /// 7/16 <=|value|<11/16
             {
                 idx = 0; value = (2.0f * value - 1.0f)/(2.0f + value);
             }else                           /// 11/16<=|value|< 19/16
@@ -720,7 +728,7 @@ float atan_f(float value)
             }
         } else
         {
-            if (ata.u_raw  < 0x401c0000)    /// |value| < 2.4375
+            if (ata.i_raw  < 0x401c0000)    /// |value| < 2.4375
             {
                 idx = 2; value  = (value - 1.5f)/(1.0f + 1.5f * value);
             } else                          /// 2.4375 <= |value| < 2^66
@@ -748,22 +756,22 @@ float atan_f(float value)
 /// Возвращает значение угла в радианах 0:2pi
 float atan2_f(float value_sin, float value_cos)
 {
-    union float_raw ata_si; union float_raw ata_co;
+    union f__raw ata_si; union f__raw ata_co;
     ata_si.f_raw = value_sin; ata_co.f_raw = value_cos;
     int_fast8_t sign_si, sign_co; float rep;
     sign_si = ata_si.sign; sign_co = ata_co.sign;
     ata_si.sign = 0; ata_co.sign = 0;
-    if (ata_co.u_raw < 0x20000000)                  /// |co| < 1.0e-19
+    if (ata_co.i_raw < 0x01800000)                  /// |co| < 4.7e-38
     {
-        if (ata_si.u_raw < 0x20000000) return 0.0f; /// |si| < 1.0e-19
-        if (sign_si != 0) return 1.5f*PI; else return PI/2.0f;
-    }else if (ata_si.u_raw < 0x20000000)            /// |si| < 1.0e-19
+        if (ata_si.i_raw < 0x01800000) return 0.0f; /// |si| < 4.7e-38
+        if (sign_si != 0) return (PI+ Pi/2.0f); else return Pi/2.0f;
+    }else if (ata_si.i_raw < 0x01800000)            /// |si| < 4.7e-38
     {
         if (sign_co != 0) return PI; else return 0.0f;
     }else;
     rep = atan_f( value_sin / value_cos);
     if (sign_co != 0) return (PI + rep);
-        else if (sign_si != 0) return ( 2.0f*PI + rep);
+        else if (sign_si != 0) return ( Pi2 + rep);
             else return (rep);
 }
 
