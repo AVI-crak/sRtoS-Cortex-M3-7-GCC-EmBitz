@@ -62,7 +62,7 @@ uint32_t monitor_timtemp = 0;
 void monitor_print (uint8_t* text)
 {
 
-    if (monitor_timtemp == ((uint32_t) 0-1)) return; else;
+    if (monitor_timtemp == ((uint32_t) 0-1)) return;
     uint16_t temp_t = 0;
     if (text[temp_t] == '\0') return;
     uint16_t temp_h = _eb_monitor_stdout.head;
@@ -78,7 +78,7 @@ void monitor_print (uint8_t* text)
             _eb_monitor_stdout.head = temp_l;
             while (_eb_monitor_stdout.tail != temp_l )
             {
-                if (monitor_timtemp == 0) monitor_timtemp = sSystem_task.system_us + 5000; else;
+                if (monitor_timtemp == 0) monitor_timtemp = sSystem_task.system_us + 5000;
                 if (monitor_timtemp < sSystem_task.system_us)
                 {
                    monitor_timtemp = (uint32_t) 0-1;

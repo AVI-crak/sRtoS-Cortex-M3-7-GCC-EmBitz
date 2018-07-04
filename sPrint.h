@@ -16,12 +16,21 @@
 /// печать float
 char* float_char (float value);
 
-
 /// печать uint32_t, uint16_t, uint8_t
 char * ui32_char (uint32_t value);
 
 /// печать int32_t, int16_t, int8_t
 char * i32_char (int32_t value);
+
+typedef union
+{
+    uint32_t x1;
+    int32_t x2;
+    float x3;
+}all_type;
+
+void   printo( char* text, all_type value);
+
 
 
 /// на вкус и цвет...
@@ -34,7 +43,7 @@ char * i32_char (int32_t value);
 #define ICE_F(var) (ICE_TYPE (var) (0.1f) ==  0 ? 0 : 1 )
 
 
-void  printo(text, value);
+
 
 /// слепая печать без указания параметров
 /// printo("текст", float/ uint(8-32)_t/ int(8-32)_t )
