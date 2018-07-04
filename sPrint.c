@@ -57,7 +57,7 @@ char* float_char (float value)
             {
                 ofreze -= 1;
                 ofconst *=10;
-            }else;
+            };
         };
     }else if ((oftemp2 == 128) && (Ftemp.massa == 0))
     {
@@ -86,7 +86,7 @@ char* float_char (float value)
             {
                 ofreze -= 1;
                 ofconst *=10;
-            }else;
+            };
         };
         of10raw = ofconst;
     }else if (oftemp2 > 0)
@@ -98,7 +98,7 @@ char* float_char (float value)
             {
                 ofreze += 1;
                 ofconst /=10;
-            }else;
+            };
         };
         of10raw = ofconst;
     }else of10raw = ofconst;
@@ -128,17 +128,17 @@ char* float_char (float value)
         }while ( ofreze-- );
         float_text[ofline] = '.'; ofline = 13;
         while ( float_text[--ofline] == '0');
-        if (float_text[ofline] == '.') ofline++ ; else ; ofline++ ;
+        if (float_text[ofline] == '.') ofline++ ; ofline++ ;
         float_text[ofline] = 0;
-        if (Ftemp.sign != 0) float_text[--ofout] = '-'; else;
+        if (Ftemp.sign != 0) float_text[--ofout] = '-';
         return &float_text[ofout];
-    }else;
+    };
 
     float_text[ofout] = float_text[(ofout) + 1];
     float_text[(ofout) + 1] = '.';
     ofconst = 11;
     while ( float_text[--ofconst] == '0');
-    if (float_text[ofconst] == '.') ofconst++ ; else ; ofconst++ ;
+    if (float_text[ofconst] == '.') ofconst++ ; ofconst++ ;
     if (ofreze !=0 )
     {
         float_text[ofconst] = 'e';
@@ -155,7 +155,7 @@ char* float_char (float value)
             float_text[(ofconst) +4] = 0;
         };
     }else   float_text[ofconst] = 0;
-    if (Ftemp.sign != 0) float_text[--ofout] = '-'; else;
+    if (Ftemp.sign != 0) float_text[--ofout] = '-';
     return &float_text[ofout];
 }
 

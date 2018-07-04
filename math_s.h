@@ -382,7 +382,7 @@ float sin_f(float value_rad)
     float rep, ret, rev;
     if (value_rad < 0) value_rad = value_rad + Pi2; else;
     if (value_rad >= (PI+ Pi/2.0f)) value_rad -= Pi2;
-        else if (value_rad > Pi/2.0f) value_rad = PI - value_rad; else;
+        else if (value_rad > Pi/2.0f) value_rad = PI - value_rad;
     if  (abs_f(value_rad) < 1.0e-35 ) return value_rad;
     rep = value_rad;
     float* tab; tab = (float*) table_const_factorial;
@@ -430,18 +430,18 @@ const uint32_t  table_const_sin_0_pi05[256]={
 /// sin input is radian -2pi:+2pi, output 1.0:-1.0.
 float sin_f_fast(float value_rad)
 {
-    float res, rrg, fdf; int32_t nxi;
+    float res, rrg; int32_t nxi;
     float* tab; tab = (float*) table_const_sin_0_pi05;
-    if (value_rad < 0) value_rad = value_rad + Pi2; else;
+    if (value_rad < 0) value_rad = value_rad + Pi2;
     if (value_rad >= (PI+ Pi/2.0f)) value_rad -= Pi2;
-        else if (value_rad > Pi/2.0f) value_rad = PI - value_rad; else;
+        else if (value_rad > Pi/2.0f) value_rad = PI - value_rad;
     if  (abs_f(value_rad) < 1.0e-35 ) return value_rad;
 
     rrg = abs_f(value_rad * 162.338043212890625f);//((1/(PI/2)) * 255.0f); /// 255.0f = the size of the array of constants of sin (0:pi/2)
     nxi = (int32_t)rrg; rrg -= (float)nxi ;
     res =  rrg * tab[nxi+1] + (1.0f - rrg) * tab[nxi]
             + ( (tab[nxi+1]-tab[nxi]) * (0.25f-(0.5f-rrg)*(0.5f-rrg)) / (512.0f) ); /// + coincidence
-    if (value_rad < 0) res *= -1.0f;else;
+    if (value_rad < 0) res *= -1.0f;
     return res;
 }
 
@@ -463,7 +463,7 @@ float cos_f_fast(float value_rad)
 
 double sin_d(double value_rad)
 {
-    double rep, rep_z, sig, ret, rev, fac, fac_i;
+    double rep, rep_z, ret, rev, fac, fac_i;
     rep = value_rad; ret = rep; rev = rep * rep;
     fac = 1.0d; fac_i = 2.0d;
     do
@@ -484,7 +484,7 @@ double sin_d(double value_rad)
 float tan_f(float value_rad)
 {
     float rep, rep_c, ret, ret_c, rev, rev_c;
-    if (value_rad < 0) value_rad += Pi2; else;
+    if (value_rad < 0) value_rad += Pi2;
     if (value_rad >= (PI+ Pi/2.0f)) rep = value_rad - Pi2;
         else if (value_rad > Pi/2.0f) rep = PI - value_rad;
             else rep = value_rad;
@@ -566,8 +566,8 @@ float asin_f(float value)
                 qif += tab[nix];
                 wer = pif/qif;
                 return value+value*wer;
-            }
-        }else;                              /// 1> |value|>= 0.5
+            };
+        };                                  /// 1> |value|>= 0.5
 	wer = tab[10] - asi.f_raw;
 	rep = wer * 0.5f; nix = 0; pif = 0; qif = 0;
     do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
@@ -615,7 +615,7 @@ float acos_f(float value)
             {
                 aco.f_raw = PI/2.0f; aco.sign = sign;
                 return aco.f_raw;
-            } else;
+            };
             rep = value*value; nix = 0; pif = 0; qif = 0;
             do{ pif = (pif + tab[nix++]) * rep; }while (nix != 6);
             do{ qif = (qif + tab[nix++]) * rep; }while (nix != 10);
@@ -701,7 +701,7 @@ float atan_f(float value)
         {
             ata.i_raw = 0x01FF << 22; ata.sign = sign;
             return ata.f_raw;               /// NaN
-        }else;
+        };
         if(sign != 0)
             return  (-atanhi[3] - atanlo[3]);
         else
@@ -712,7 +712,7 @@ float atan_f(float value)
 	    {
             if(1.0e30f + value > 1.0f)      /// raise inexact
                 return value;
-	    }else;
+	    };
 	    idx = -1;
 	} else
 	{
@@ -768,7 +768,7 @@ float atan2_f(float value_sin, float value_cos)
     }else if (ata_si.i_raw < 0x01800000)            /// |si| < 4.7e-38
     {
         if (sign_co != 0) return PI; else return 0.0f;
-    }else;
+    };
     rep = atan_f( value_sin / value_cos);
     if (sign_co != 0) return (PI + rep);
         else if (sign_si != 0) return ( Pi2 + rep);
