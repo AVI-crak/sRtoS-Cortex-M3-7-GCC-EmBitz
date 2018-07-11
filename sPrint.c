@@ -37,7 +37,7 @@ char* float_char (float value)
     Ftemp.f_raw = value;
     uint32_t ofconst = 100000000;
     int32_t oftemp2 = (int32_t)((uint8_t) Ftemp.order - 127);
-    volatile int32_t ofreze = 0;
+    int32_t ofreze = 0;
     uint32_t of10raw = 100000000;
     if ((oftemp2 == -127) && (Ftemp.massa == 0))
     {
@@ -102,12 +102,8 @@ char* float_char (float value)
         };
         of10raw = ofconst;
     }else of10raw = ofconst;
-    uint32_t ofout = (uint32_t)1 << 23;
-    do
-    {
-        ofconst >>= 1; ofout >>= 1;
-        if (Ftemp.massa & ofout) of10raw += ofconst;
-    }while (ofout);
+    of10raw += (uint32_t) (((uint64_t) Ftemp.massa * ofconst) >> 23) ;
+    uint32_t ofout;
     of10raw += 6;
     of10raw /=10;
     ofout = 12;
@@ -119,16 +115,17 @@ char* float_char (float value)
     ofreze += 4 - ofout;
     uint32_t ofline;
     /// фигня получилась
-    if ((0 <= ofreze ) && (ofreze < 8))
+    if ((0 <= ofreze ) && (ofreze < 9))
     {
         ofline = ofout;
         do
         {
-           float_text[ofline++] = float_text[ofline];
+           float_text[ofline] = float_text[ofline +1];
+           ofline++;
         }while ( ofreze-- );
         float_text[ofline] = '.'; ofline = 13;
         while ( float_text[--ofline] == '0');
-        if (float_text[ofline] == '.') ofline++ ; ofline++ ;
+        if (float_text[ofline] == '.') ofline += 2; else ofline++;
         float_text[ofline] = 0;
         if (Ftemp.sign != 0) float_text[--ofout] = '-';
         return &float_text[ofout];
@@ -138,7 +135,7 @@ char* float_char (float value)
     float_text[(ofout) + 1] = '.';
     ofconst = 11;
     while ( float_text[--ofconst] == '0');
-    if (float_text[ofconst] == '.') ofconst++ ; ofconst++ ;
+    if (float_text[ofconst] == '.') ofconst += 2; else ofconst++;
     if (ofreze !=0 )
     {
         float_text[ofconst] = 'e';
