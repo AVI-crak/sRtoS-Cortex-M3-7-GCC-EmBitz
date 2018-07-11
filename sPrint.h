@@ -42,7 +42,7 @@ void   printo( char* text, all_type value);
 #define ICE_i(var) (ICE_TYPE (var) (0) > -1 ? 0 : 1 )
 #define ICE_F(var) (ICE_TYPE (var) (0.1f) ==  0 ? 0 : 1 )
 
-
+//sizeof
 
 
 /// слепая печать без указания параметров
