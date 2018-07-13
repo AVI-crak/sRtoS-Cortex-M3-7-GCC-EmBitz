@@ -282,7 +282,7 @@ void qSort_8t(int8_t *arr8_t, int32_t left, int32_t right)
 	if (left < jee_8)
     {
         tmp_8 = jee_8 - left;
-        if (tmp_8 > 128) qSort_8t(arr8_t, left, jee_8);
+        if (tmp_8 < 128) qSort_8t(arr8_t, left, jee_8);
         else
         {
             jee_8++;
@@ -301,7 +301,7 @@ void qSort_8t(int8_t *arr8_t, int32_t left, int32_t right)
     if (iee_8 < right)
     {
         tmp_8 = right - iee_8;
-        if (tmp_8 > 128) qSort_8t(arr8_t, iee_8, right);
+        if (tmp_8 < 128) qSort_8t(arr8_t, iee_8, right);
         else
         {
             right++;
@@ -345,7 +345,7 @@ void qSort_16t(int16_t *arr16_t, int32_t left, int32_t right)
     if (left < jee)
     {
         tmp = jee - left;
-        if (tmp > 128) qSort_16t(arr16_t, left, jee);
+        if (tmp < 128) qSort_16t(arr16_t, left, jee);
         else
         {
             jee++;
@@ -364,7 +364,7 @@ void qSort_16t(int16_t *arr16_t, int32_t left, int32_t right)
     if (iee < right)
     {
         tmp = right - iee;
-        if (tmp > 128) qSort_16t(arr16_t, iee, right);
+        if (tmp < 128) qSort_16t(arr16_t, iee, right);
         else
         {
             right++;
@@ -405,7 +405,7 @@ void qSort_32t(int32_t *arr32_t, int32_t left, int32_t right)
     if (left < jee)
     {
         tmp = jee - left;
-        if (tmp > 128) qSort_32t(arr32_t, left, jee);
+        if (tmp < 128) qSort_32t(arr32_t, left, jee);
         else
         {
             jee++;
@@ -424,7 +424,7 @@ void qSort_32t(int32_t *arr32_t, int32_t left, int32_t right)
     if (iee < right)
     {
         tmp = right - iee;
-        if (tmp > 128) qSort_32t(arr32_t, iee, right);
+        if (tmp < 128) qSort_32t(arr32_t, iee, right);
         else
         {
             right++;

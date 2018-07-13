@@ -221,6 +221,7 @@ void sDelay_mc(uint32_t Delay_mc);
 
 
 void __attribute__ ((weak))Start_task(void);
+void __attribute__ ((weak))SVC_Handler(void);
 
 /// Старт ОS
 /// частота ядра в гц, размер стека майна,

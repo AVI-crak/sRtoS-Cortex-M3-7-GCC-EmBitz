@@ -1,4 +1,4 @@
-/**
+/*
  @file    RtoS_cortex_m7.S
  @author  AVI-crak
  @version V-12%
@@ -21,7 +21,7 @@
  STACK_Mx -32,-28,-24,-20,-16,-12, -8, -4,  0,  4,  8, 12,  16, 20, 24,   28
            r4, r5, r6, r7, r8, r9,r10,r11, r0, r1, r2, r3, r12, LR, PC, xPSR
 
-**/
+*/
  .syntax unified
  .cpu cortex-m7
  .arch armv7e-m
@@ -635,10 +635,6 @@ _Start_task03:
             mov     r0, #0xFF
             svc     0x0             //sNVIC_EnableIRQ(SysTick_IRQn, 15);
             pop     {r0, r1, r2, r3, R4, R5, pc}
-  //          bx      lr
-
-
-
 
 
 

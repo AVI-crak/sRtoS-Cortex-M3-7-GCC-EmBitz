@@ -79,27 +79,25 @@ char* float_char (float value)
         return &float_text[0];
     }else if (oftemp2 < 0)
     {
-        while ( oftemp2 !=0)
-        {
-            ofconst >>= 1; oftemp2 += 1;
+        do{
+            ofconst >>= 1;
             if (ofconst < 100000000 )
             {
                 ofreze -= 1;
                 ofconst *=10;
             };
-        };
+        }while ( ++oftemp2 !=0);
         of10raw = ofconst;
     }else if (oftemp2 > 0)
     {
-        while ( oftemp2 !=0)
-        {
-            ofconst <<= 1; oftemp2 -= 1;
+        do{
+            ofconst <<= 1;
             if (ofconst > 1000000000 )
             {
                 ofreze += 1;
                 ofconst /=10;
             };
-        };
+        }while ( --oftemp2 !=0);
         of10raw = ofconst;
     }else of10raw = ofconst;
     of10raw += (uint32_t) (((uint64_t) Ftemp.massa * ofconst) >> 23) ;
@@ -115,7 +113,7 @@ char* float_char (float value)
     ofreze += 4 - ofout;
     uint32_t ofline;
     /// фигня получилась
-    if ((0 <= ofreze ) && (ofreze < 9))
+    if ((0 <= ofreze ) && (ofreze < 8))
     {
         ofline = ofout;
         do

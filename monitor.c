@@ -22,9 +22,9 @@
 #include "sPrint.h"
 
 
-uint8_t     _std_out_buffer[buf_zize];
-uint8_t     _std_in_buffer[buf_zize];
-uint8_t     m_mk_buf[64];
+char     _std_out_buffer[buf_zize];
+char     _std_in_buffer[buf_zize];
+char     m_mk_buf[64];
 
 #pragma pack(push, 4)
 static struct _stdout
@@ -33,7 +33,7 @@ static struct _stdout
     const volatile  uint16_t    tail;
     volatile uint16_t           head;
     uint16_t                    mode;
-    volatile uint8_t            *ptr;
+    volatile char            *ptr;
 }_eb_monitor_stdout ={buf_zize,0,0,1,&_std_out_buffer[0]};
 
 static struct _stdin
@@ -42,7 +42,7 @@ static struct _stdin
     volatile uint16_t       tail;
     const volatile uint16_t head;
     uint16_t                mode;
-    const volatile uint8_t  *ptr;
+    const volatile char  *ptr;
 }_eb_monitor_stdin ={buf_zize,0,0,1,&_std_in_buffer[0]};
 #pragma pack(pop)
 
@@ -59,7 +59,7 @@ void monitor_fining (void)
 uint32_t monitor_timtemp = 0;
 
  /// печать строки
-void monitor_print (uint8_t* text)
+void monitor_print (char* text)
 {
 
     if (monitor_timtemp == ((uint32_t) 0-1)) return;
@@ -78,12 +78,11 @@ void monitor_print (uint8_t* text)
             _eb_monitor_stdout.head = temp_l;
             while (_eb_monitor_stdout.tail != temp_l )
             {
-                if (monitor_timtemp == 0) monitor_timtemp = sSystem_task.system_us + 5000;
-                if (monitor_timtemp < sSystem_task.system_us)
-                {
-                   monitor_timtemp = (uint32_t) 0-1;
-                   return;
-                }else sTask_skip();// Delay(1000);// там занято
+                if (monitor_timtemp == 0) monitor_timtemp = sSystem_task.system_us;
+                    else if ((monitor_timtemp + 5000) < sSystem_task.system_us)
+                            {
+                                monitor_timtemp = (uint32_t) 0-1; return;
+                            }else sTask_skip(); /// там занято
             };
             _eb_monitor_stdout.ptr[temp_h] = text[temp_t++];
             _eb_monitor_stdout.head = temp_h;
@@ -94,7 +93,7 @@ void monitor_print (uint8_t* text)
     __DSB();
 };
 
-uint8_t *monitor_scan (void)
+char *monitor_scan (void)
 {
     uint16_t temp_h = _eb_monitor_stdin.head;
     uint16_t temp_l = _eb_monitor_stdin.tail;
@@ -174,14 +173,15 @@ while(Ltask_list_zize_sys != 0 )
     }
     temp_list++; Ltask_list_zize_sys--;
 }
-uint8_t shaize[12];
+//char shaize[12];
 printo("\nNVIC_size_max: ",sSystem_task.NVIC_size_max);
 printo("\nNVIC_size: ", sSystem_task.NVIC_size);
 printo("\nTime_ptint: ", time_tax2);
 monitor_print ("ms\n");
 while (_eb_monitor_stdout.tail != _eb_monitor_stdout.head ) sTask_skip();
 time_tax2 = sSystem_task.system_us - time_tax;
-sDelay_mc(3000);
+if (time_tax2 < 1000)time_tax2 = 2000; else time_tax2 *= 2;
+sDelay_mc(time_tax2);
 monitor_print("\f");
 
 }
