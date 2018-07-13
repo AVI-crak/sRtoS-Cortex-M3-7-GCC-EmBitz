@@ -1,8 +1,7 @@
 
 /// древнее зло на новый лад
-/// в процессе %0,3
+/// в процессе %0,4
 
-/// + MATH.H http://kazus.ru/forums/attachment.php?attachmentid=124138&d=1515955294
 /// + https://github.com/xboxfanj/math-neon
 /// + gcc\math.h
 /// + собсвенное мнение
@@ -301,8 +300,8 @@ float pow_f(float value,float degree)
     {
         if(value != 0 || 0 >= degree)
             return (exp_f(log_f(value, 'e') * degree));
-    }
-}
+    };return 0.0;
+};
 
 
 /// Extraction of the square root value
@@ -380,7 +379,7 @@ const uint32_t table_const_factorial[14] =
 float sin_f(float value_rad)
 {
     float rep, ret, rev;
-    if (value_rad < 0) value_rad = value_rad + Pi2; else;
+    if (value_rad < 0) value_rad = value_rad + Pi2;
     if (value_rad >= (PI+ Pi/2.0f)) value_rad -= Pi2;
         else if (value_rad > Pi/2.0f) value_rad = PI - value_rad;
     if  (abs_f(value_rad) < 1.0e-35 ) return value_rad;
@@ -491,8 +490,8 @@ float tan_f(float value_rad)
         printo( "  si=", rep );// monitor_print("\n");
     if (abs_f(rep) >= (Pi/2.0f)) return 1.0e+36;
     if (value_rad >= PI ) rep_c = (PI+ Pi/2.0f) - value_rad;
-        else rep_c = value_rad - Pi/2.0f; rep_c *=-1.0f;
-    ret = rep; rev = rep * rep;
+        else rep_c = value_rad - Pi/2.0f;
+    rep_c *=-1.0f; ret = rep; rev = rep * rep;
     ret_c = rep_c; rev_c = rep_c * rep_c;
     int32_t nex = 0;
     float* tab; tab = (float*) table_const_factorial;

@@ -26,15 +26,15 @@
 //#define buf_zize    (127)
 #define buf_zize    (256)
 
-uint8_t     m_ms_buf[buf_zize + 1];
+char     m_ms_buf[buf_zize + 1];
 
 /// печать сообщение в EB monitor
 /// \n новая строка, \t табуляция, \f очистка
 /// \b позиция минус 1 символ, \r позиция строка с нуля.
-void monitor_print (uint8_t* text);
+void monitor_print (char* text);
 
 /// Принять сообщение из EB monitor \n enter
-uint8_t *monitor_scan (void);
+char *monitor_scan (void);
 
 /// Печать отладочной информации в EB monitor из os
 void monitor (void);
