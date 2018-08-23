@@ -15,11 +15,7 @@
 /// 8 < OUT_TXT_SIZE_FLOATING < 16
 #define OUT_TXT_SIZE_FLOATING   14
 
-#ifdef   SPRINT_C_
-void floating_char(uint32_t massa, uint32_t of10raw, int_fast16_t feeze, int_fast16_t order10, char* out_txt);
-void entire_char (char* char_in, char* char_out, int_fast8_t t_ord);
 
-#endif
 char* ui32_char (uint32_t value);
 char* i32_char (int32_t value);
 char* i64_char (int64_t value);
