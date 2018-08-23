@@ -1,8 +1,8 @@
 /// sPrint.h
 /// слепая печать без указания параметров типа переменной
 /// без зависимостей от внешних библиотек
-/// printo("текст", float / uint(8-32)_t / int(8-32)_t )
-/// размер - 1064 байт при агрессивной оптимизации
+/// printo("текст", double / float / uint(8-32-64)_t / int(8-32-64)_t )
+/// размер - 1907 байт при агрессивной оптимизации
 /// на вкус и цвет... добавить собственную функцию печати
 /// макрос отдаёт адрес массива для печати (char*)
 /// #define soft_printing(data_char)  monitor_print(data_char)
@@ -12,21 +12,30 @@
 
 
 
+/// 8 < OUT_TXT_SIZE_FLOATING < 16
+#define OUT_TXT_SIZE_FLOATING   14
 
-/// печать float
+#ifdef   SPRINT_C_
+void floating_char(uint32_t massa, uint32_t of10raw, int_fast16_t feeze, int_fast16_t order10, char* out_txt);
+void entire_char (char* char_in, char* char_out, int_fast8_t t_ord);
+
+#endif
+char* ui32_char (uint32_t value);
+char* i32_char (int32_t value);
+char* i64_char (int64_t value);
+char* ui64_char (uint64_t value);
 char* float_char (float value);
+char* double_char (double value);
 
-/// печать uint32_t, uint16_t, uint8_t
-char * ui32_char (uint32_t value);
-
-/// печать int32_t, int16_t, int8_t
-char * i32_char (int32_t value);
 
 typedef union
 {
-    uint32_t x1;
-    int32_t x2;
-    float x3;
+    double      x1;
+    uint64_t    x2;
+    int64_t     x3;
+    uint32_t    x4;
+    int32_t     x5;
+    float       x6;
 }all_type;
 
 void   printo( char* text, all_type value);
@@ -39,17 +48,18 @@ void   printo( char* text, all_type value);
 
 
 #define ICE_TYPE(type_x) (__typeof__(type_x))
+#define ICE_SIZE(type_x) (sizeof(type_x))
 #define ICE_i(var) (ICE_TYPE (var) (0) > -1 ? 0 : 1 )
 #define ICE_F(var) (ICE_TYPE (var) (0.1f) ==  0 ? 0 : 1 )
+#define ICE_D(var) (ICE_TYPE (var) (0.1d) ==  0 ? 0 : 1 )
+#define ICE_64(var) (ICE_SIZE (var) == 8 ? 0 : 1 )
+#define ICE_C(var) (ICE_TYPE (var) ("0") ==  (var + 1 ) ? 0 : 1 )
 
-//sizeof
 
-
-/// слепая печать без указания параметров
 /// printo("текст", float/ uint(8-32)_t/ int(8-32)_t )
 #define printo(text, value)     soft_printing(text); \
-    soft_printing ( ICE_F(value) ? float_char(value) :  ICE_i(value) ?  \
-    ui32_char(value) : i32_char(value) )
+    soft_printing ( ICE_64(value) ? (ICE_F(value) ? float_char(value) :  ICE_i(value) ? ui32_char(value) : i32_char(value)) : \
+    (ICE_D(value) ? double_char(value) :  ICE_i(value) ? ui64_char(value) : i64_char(value)) )
 
 
 
