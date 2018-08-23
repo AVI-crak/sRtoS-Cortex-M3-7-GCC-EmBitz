@@ -13,8 +13,6 @@
 
 
 
-#define SPRINT_C_
-
 union float_raw
 {
     struct
@@ -64,6 +62,9 @@ const char txt_NaN[] = "NaN";
 
 char float_text[OUT_TXT_SIZE_FLOATING + 1];
 
+void floating_char(uint32_t massa, uint32_t of10raw, int16_t feeze, int16_t order10, char* out_txt);
+void entire_char (char* char_in, char* char_out, int8_t t_ord);
+
 
 char * i32_char (int32_t value)  // 112
 {
@@ -80,7 +81,7 @@ char * i32_char (int32_t value)  // 112
 
 char* ui32_char (uint32_t value)
 {
-    int_fast8_t t_ord;
+    int8_t t_ord;
     t_ord = 20;
     char text_massa[20];
 
@@ -90,7 +91,7 @@ char* ui32_char (uint32_t value)
             value /= 10;
         };
 
-    entire_char ( &text_massa[0], &float_text[0],  t_ord);
+    entire_char ( text_massa, float_text,  t_ord);
     return  &float_text[0];
 }
 
@@ -110,7 +111,7 @@ char * i64_char (int64_t value)  //180
 
 char * ui64_char (uint64_t value)
 {
-    int_fast8_t t_ord;
+    int8_t t_ord;
     t_ord = 20;
     char text_massa[20];
     union double_raw  temp;
@@ -133,12 +134,12 @@ char * ui64_char (uint64_t value)
         };
     };
 
-    entire_char ( &text_massa[0], &float_text[0],  t_ord);
+    entire_char ( text_massa, float_text,  t_ord);
     return  &float_text[0];
 }
 
 
-void entire_char (char* char_in, char* char_out, int_fast8_t t_ord)   //116
+void entire_char (char* char_in, char* char_out, int8_t t_ord)   //116
 {
     int_fast8_t exxx;
     if (char_out[0] != 0) exxx = 0; else exxx = -1;
@@ -174,7 +175,7 @@ char* float_char (float value)    /// 268 байт,
     int_fast8_t sign;
     uint16_t order;
     uint32_t massa, of10raw;
-    int_fast16_t feeze, order10, cis;
+    int16_t feeze, order10, cis;
 
     sign = ftemp.sign; order = ftemp.order;
 
@@ -237,7 +238,7 @@ char* double_char (double value)    /// 296 байт
     int_fast8_t sign;
     uint16_t order;
     uint32_t massa, of10raw;
-    int_fast16_t feeze, order10, cis;
+    int16_t feeze, order10, cis;
 
 
     sign = dtemp.sign; order = dtemp.order;
@@ -293,7 +294,7 @@ floating_char( massa, of10raw, feeze, order10, float_text);
 
 }
 
-void floating_char(uint32_t massa, uint32_t of10raw, int_fast16_t feeze, int_fast16_t order10, char* out_txt) /// 528 байт
+void floating_char(uint32_t massa, uint32_t of10raw, int16_t feeze, int16_t order10, char* out_txt) /// 528 байт
 {
     int_fast8_t sig, t_mas, t_ord, t_ex, verge;
     int_fast16_t  ofree, out_n;
