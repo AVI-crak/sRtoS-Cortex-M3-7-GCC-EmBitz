@@ -72,26 +72,29 @@ char * i32_char (int32_t value)  // 112
     {
         float_text[0] = '-';
         value = 0 - value;
-    }else float_text[0] = 0;
-
+    }else float_text[0] = '0';
     return  ui32_char (value);
-
 };
 
 
 char* ui32_char (uint32_t value)
 {
-    int8_t t_ord;
-    t_ord = 20;
-    char text_massa[20];
-
+    if (value == 0)
+    {
+        float_text[0] = '0';
+        float_text[1] = 0;
+    }else
+    {
+        int8_t t_ord;
+        t_ord = 20;
+        char text_massa[20];
         while (value != 0)
         {
             text_massa[--t_ord] = value % 10 + '0';
             value /= 10;
         };
-
-    entire_char ( text_massa, float_text,  t_ord);
+        entire_char ( text_massa, float_text,  t_ord);
+    };
     return  &float_text[0];
 }
 
@@ -102,8 +105,7 @@ char * i64_char (int64_t value)  //180
     {
         float_text[0] = '-';
         value = 0 - value;
-    }else float_text[0] = 0;
-
+    }else float_text[0] = '0';
     return  ui64_char (value);
 
 };
@@ -111,38 +113,42 @@ char * i64_char (int64_t value)  //180
 
 char * ui64_char (uint64_t value)
 {
-    int8_t t_ord;
-    t_ord = 20;
-    char text_massa[20];
     union double_raw  temp;
     temp.u64_raw = value;
-    uint32_t value32;
-    if (temp.u_raw[1] == 0)
+    if (temp.u64_raw == 0)
     {
-       value32 = temp.u_raw[0];
-        while (value != 0)
-        {
-            text_massa[--t_ord] = value32 % 10 + '0';
-            value32 /= 10;
-        };
+        float_text[0] = '0';
+        float_text[1] = 0;
     }else
     {
-        while (value != 0)
+        int8_t t_ord;
+        t_ord = 20;
+        char text_massa[20];
+        if (temp.u_raw[1] == 0)
         {
-            text_massa[--t_ord] = value % 10 + '0';
-            value /= 10;
+            while (temp.u_raw[0] != 0)
+            {
+                text_massa[--t_ord] = temp.u_raw[0] % 10 + '0';
+                temp.u_raw[0] /= 10;
+            };
+        }else
+        {
+            while (temp.u64_raw != 0)
+            {
+                text_massa[--t_ord] = temp.u64_raw % 10 + '0';
+                temp.u64_raw /= 10;
+            };
         };
+        entire_char ( text_massa, float_text,  t_ord);
     };
-
-    entire_char ( text_massa, float_text,  t_ord);
     return  &float_text[0];
-}
+};
 
 
 void entire_char (char* char_in, char* char_out, int8_t t_ord)   //116
 {
     int_fast8_t exxx;
-    if (char_out[0] != 0) exxx = 0; else exxx = -1;
+    if (char_out[0] == '-') exxx = 0; else exxx = -1;
     while (( exxx < (OUT_TXT_SIZE_FLOATING - 1)) && (t_ord != 20))
     {
         char_out[++exxx] = char_in[t_ord++];

@@ -10,6 +10,8 @@
 
 #ifndef _sPrinto_
 
+#include "monitor.h"
+
 
 
 /// 8 < OUT_TXT_SIZE_FLOATING < 16
@@ -34,8 +36,8 @@ typedef union
     float       x6;
 }all_type;
 
-void   printo( char* text, all_type value);
 
+//__attribute__( ( always_inline ) ) inline void   printo( char* text, all_type value);
 
 
 /// на вкус и цвет...
@@ -52,10 +54,13 @@ void   printo( char* text, all_type value);
 #define ICE_C(var) (ICE_TYPE (var) ("0") ==  (var + 1 ) ? 0 : 1 )
 
 
+
+
+
 /// printo("текст", float/ uint(8-32)_t/ int(8-32)_t )
 #define printo(text, value)     soft_printing(text); \
-    soft_printing ( ICE_64(value) ? (ICE_F(value) ? float_char(value) :  ICE_i(value) ? ui32_char(value) : i32_char(value)) : \
-    (ICE_D(value) ? double_char(value) :  ICE_i(value) ? ui64_char(value) : i64_char(value)) )
+    soft_printing ( ICE_64(value) ? (ICE_F(value) ? float_char(value) :  (ICE_i(value) ? ui32_char(value) : i32_char(value)) ) : \
+    (ICE_D(value) ? double_char(value) :  (ICE_i(value) ? ui64_char(value) : i64_char(value)) ) )
 
 
 
